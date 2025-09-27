@@ -1,0 +1,54 @@
+{
+  "name": "@asenajs/asena-drizzle",
+  "version": "1.0.0",
+  "author": "LibirSoft",
+  "main": "dist/index.js",
+  "module": "index.ts",
+  "devDependencies": {
+    "@asenajs/asena": "^0.3.1",
+    "@types/bun": "latest",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "drizzle-kit": "^0.31.5",
+    "drizzle-orm": "^0.44.5",
+    "eslint": "^8.57.1",
+    "eslint-config-alloy": "^5.1.2",
+    "eslint-config-prettier": "^9.1.2",
+    "eslint-plugin-alloy": "^1.2.1",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-n": "^16.6.2",
+    "eslint-plugin-prettier": "^5.5.4",
+    "eslint-plugin-promise": "^6.6.0",
+    "prettier": "^3.6.2",
+    "postgres": "^3.4.7",
+    "mysql2": "^3.15.1",
+    "reflect-metadata": "^0.1.14"
+  },
+  "peerDependencies": {
+    "@asenajs/asena": "^0.3.1",
+    "drizzle-orm": "^0.44.5",
+    "typescript": "^5.9.2",
+    "postgres": "^3.0.0",
+    "mysql2": "^3.0.0",
+    "reflect-metadata": "^0.1.13"
+  },
+  "description": "Drizzle ORM utilities for AsenaJS",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "test:coverage": "bun test --coverage",
+    "build": "bun run clean && tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "bun run build"
+  },
+  "types": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AsenaJs/asena-logger.git"
+  }
+}
