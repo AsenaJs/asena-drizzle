@@ -19,8 +19,6 @@ bun add @asenajs/asena-drizzle drizzle-orm
 bun add pg
 # For MySQL
 bun add mysql2
-# For reflection support
-bun add reflect-metadata
 ```
 
 ## Quick Start
