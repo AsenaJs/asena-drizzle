@@ -15,7 +15,8 @@ import { Database } from '../lib/decorators';
 })
 export class MyDatabase extends AsenaDatabaseService {}
 
-// Alternative: PostgreSQL database
+// Alternative: PostgreSQL database (using pg/node-postgres)
+// Make sure to install: bun add pg
 @Database({
   type: 'postgresql',
   config: {

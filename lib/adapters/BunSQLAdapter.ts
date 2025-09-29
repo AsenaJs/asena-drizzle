@@ -17,9 +17,9 @@ export class BunSQLAdapter extends DatabaseAdapter<BunSQLDatabase<any>> {
       this.client = new SQL({
         database: this.config.database,
         password: this.config.password,
-        user: this.config.user,
+        username: this.config.user,
         port: this.config.port,
-        host: this.config.host,
+        hostname: this.config.host,
       });
 
       this._connection = drizzle({

@@ -16,7 +16,7 @@ Drizzle ORM utilities for AsenaJS - A powerful and type-safe database integratio
 ```bash
 bun add @asenajs/asena-drizzle drizzle-orm
 # For PostgreSQL
-bun add postgres
+bun add pg
 # For MySQL
 bun add mysql2
 # For reflection support
@@ -39,7 +39,7 @@ import { Database } from '@asenajs/asena-drizzle';
     user: 'postgres',
     password: 'password',
   },
-  name: 'MainDatabase' // Optional: for multiple databases
+  name: 'MainDatabase' // Optional: for multiple databases but we recommend using it
 })
 export class MyDatabase extends AsenaDatabaseService {}
 ```
@@ -74,9 +74,10 @@ export class UserRepository extends BaseRepository<typeof users> {
 import { Service } from '@asenajs/asena/server';
 import { Inject } from '@asenajs/asena/ioc';
 
-@Service()
+@Service("UserService")
 export class UserService {
-  @Inject()
+  
+  @Inject("UserRepository")
   private userRepository: UserRepository;
 
   async createUser(name: string, email: string) {
@@ -95,7 +96,7 @@ export class UserService {
 
 ## Supported Database Types
 
-- `postgresql` - PostgreSQL using postgres.js
+- `postgresql` - PostgreSQL using pg (node-postgres) with connection pooling
 - `mysql` - MySQL using mysql2
 - `bun-sql` - BunSQL using Bun's SQL interface
 - `sqlite` - SQLite (coming soon)

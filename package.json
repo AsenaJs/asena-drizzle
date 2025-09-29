@@ -2,11 +2,50 @@
   "name": "@asenajs/asena-drizzle",
   "version": "1.0.0",
   "author": "LibirSoft",
+  "description": "Type-safe database integration for AsenaJS with Drizzle ORM - Repository pattern, decorators, and multi-database support",
   "main": "dist/index.js",
   "module": "index.ts",
+  "types": "dist/index.d.ts",
+  "license": "MIT",
+  "keywords": [
+    "asenajs",
+    "drizzle",
+    "drizzle-orm",
+    "database",
+    "orm",
+    "repository",
+    "postgresql",
+    "mysql",
+    "typescript",
+    "decorators",
+    "ioc",
+    "dependency-injection"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AsenaJs/asena-drizzle.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AsenaJs/asena-drizzle/issues"
+  },
+  "homepage": "https://github.com/AsenaJs/asena-drizzle#readme",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "test:coverage": "bun test --coverage",
+    "build": "bun run clean && tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "bun run build"
+  },
   "devDependencies": {
-    "@asenajs/asena": "^0.3.1",
+    "@asenajs/asena": "^0.3.2",
     "@types/bun": "latest",
+    "@types/pg": "^8.15.5",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "drizzle-kit": "^0.31.5",
     "drizzle-orm": "^0.44.5",
@@ -18,37 +57,17 @@
     "eslint-plugin-n": "^16.6.2",
     "eslint-plugin-prettier": "^5.5.4",
     "eslint-plugin-promise": "^6.6.0",
-    "prettier": "^3.6.2",
-    "postgres": "^3.4.7",
     "mysql2": "^3.15.1",
-    "reflect-metadata": "^0.1.14"
+    "pg": "^8.16.3",
+    "prettier": "^3.6.2",
+    "reflect-metadata": "^0.2.2"
   },
   "peerDependencies": {
-    "@asenajs/asena": "^0.3.1",
+    "@asenajs/asena": "^0.3.2",
     "drizzle-orm": "^0.44.5",
     "typescript": "^5.9.2",
-    "postgres": "^3.0.0",
+    "pg": "^8.0.0",
     "mysql2": "^3.0.0",
     "reflect-metadata": "^0.1.13"
-  },
-  "description": "Drizzle ORM utilities for AsenaJS",
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
-  "license": "MIT",
-  "scripts": {
-    "test": "bun test",
-    "test:watch": "bun test --watch",
-    "test:coverage": "bun test --coverage",
-    "build": "bun run clean && tsc",
-    "clean": "rm -rf dist",
-    "prepublishOnly": "bun run build"
-  },
-  "types": "dist/index.d.ts",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/AsenaJs/asena-logger.git"
   }
 }

@@ -1,39 +1,44 @@
-import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { drizzle } from 'drizzle-orm/postgres-js';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import { DatabaseAdapter } from './DatabaseAdapter';
 import type { DatabaseConfig, DrizzleConfig } from '../types';
 
-export class PostgreSQLAdapter extends DatabaseAdapter<PostgresJsDatabase<any>> {
+export class PostgreSQLAdapter extends DatabaseAdapter<NodePgDatabase<any>> {
 
-  private client: any | null = null;
+  private pool: any | null = null;
 
   public constructor(config: DatabaseConfig, drizzleConfig?: DrizzleConfig) {
     super(config, drizzleConfig);
   }
 
-  public async connect(): Promise<PostgresJsDatabase<any>> {
+  public async connect(): Promise<NodePgDatabase<any>> {
     try {
       // Dynamic import to avoid hard dependency
-      let postgres: any;
+      let pg: any;
 
       try {
-        postgres = (await import('postgres' as any)).default;
+        pg = await import('pg');
       } catch {
-        throw new Error('PostgreSQL adapter requires "postgres" package. Install it with: bun add postgres');
+        throw new Error('PostgreSQL adapter requires "pg" package. Install it with: bun add pg');
       }
 
-      const connectionString = this.createConnectionString();
+      const { Pool } = pg.default || pg;
 
-      this.client = postgres(connectionString, {
+      // Create connection pool
+      this.pool = new Pool({
         host: this.config.host,
         port: this.config.port,
         database: this.config.database,
-        username: this.config.user,
+        user: this.config.user,
         password: this.config.password,
-        ssl: this.config.ssl ? 'require' : false,
+        ssl: this.config.ssl ? { rejectUnauthorized: false } : false,
+        // Connection pool settings
+        max: 20, // Maximum number of clients in the pool
+        idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+        connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection cannot be established
       });
 
-      this._connection = drizzle(this.client, {
+      this._connection = drizzle(this.pool, {
         schema: this.drizzleConfig?.schema,
         logger: this.drizzleConfig?.logger || false,
       });
@@ -52,9 +57,9 @@ export class PostgreSQLAdapter extends DatabaseAdapter<PostgresJsDatabase<any>> 
   }
 
   public async disconnect(): Promise<void> {
-    if (this.client) {
-      await this.client.end();
-      this.client = null;
+    if (this.pool) {
+      await this.pool.end();
+      this.pool = null;
     }
 
     this._connection = null;
