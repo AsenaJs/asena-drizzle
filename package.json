@@ -1,6 +1,6 @@
 {
   "name": "@asenajs/asena-drizzle",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "LibirSoft",
   "description": "Type-safe database integration for AsenaJS with Drizzle ORM - Repository pattern, decorators, and multi-database support",
   "main": "dist/index.js",
@@ -40,10 +40,14 @@
     "test:coverage": "bun test --coverage",
     "build": "bun run clean && tsc",
     "clean": "rm -rf dist",
-    "prepublishOnly": "bun run build"
+    "prepublishOnly": "bun run build",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "bun run build && changeset publish"
   },
   "devDependencies": {
     "@asenajs/asena": "^0.3.2",
+    "@changesets/cli": "^2.29.7",
     "@types/bun": "latest",
     "@types/pg": "^8.15.5",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
