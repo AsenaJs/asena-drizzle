@@ -164,6 +164,14 @@ export function Repository(options: RepositoryDecoratorOptions) {
       defineMetadata(key, value, RepositoryServiceClass);
     });
 
+    // Fix: Override the class name to match the original target class
+    // This ensures the exported class name matches what CLI expects during build
+    Object.defineProperty(RepositoryServiceClass, 'name', {
+      value: target.name,
+      writable: false,
+      configurable: true
+    });
+
     return RepositoryServiceClass as any;
   };
 }
