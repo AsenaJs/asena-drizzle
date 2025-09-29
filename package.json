@@ -21,7 +21,7 @@
     "prettier": "^3.6.2",
     "postgres": "^3.4.7",
     "mysql2": "^3.15.1",
-    "reflect-metadata": "^0.1.14"
+    "reflect-metadata": "^0.2.2"
   },
   "peerDependencies": {
     "@asenajs/asena": "^0.3.1",
