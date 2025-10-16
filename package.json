@@ -46,7 +46,7 @@
     "release": "bun run build && changeset publish"
   },
   "devDependencies": {
-    "@asenajs/asena": "^0.3.2",
+    "@asenajs/asena": "^0.4.0",
     "@changesets/cli": "^2.29.7",
     "@types/bun": "latest",
     "@types/pg": "^8.15.5",
@@ -67,7 +67,7 @@
     "reflect-metadata": "^0.2.2"
   },
   "peerDependencies": {
-    "@asenajs/asena": "^0.3.2",
+    "@asenajs/asena": "^0.4.0",
     "drizzle-orm": "^0.44.5",
     "typescript": "^5.9.2",
     "pg": "^8.0.0",
