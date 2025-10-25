@@ -1,6 +1,6 @@
 {
   "name": "@asenajs/asena-drizzle",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "author": "LibirSoft",
   "description": "Type-safe database integration for AsenaJS with Drizzle ORM - Repository pattern, decorators, and multi-database support",
   "main": "dist/index.js",
@@ -43,35 +43,37 @@
     "prepublishOnly": "bun run build",
     "changeset": "changeset",
     "version": "changeset version",
-    "release": "bun run build && changeset publish"
+    "release": "bun run build && changeset publish",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "bun run lint && bun run format:check",
+    "check:fix": "bun run lint:fix && bun run format"
   },
   "devDependencies": {
-    "@asenajs/asena": "^0.3.2",
+    "@asenajs/asena": "0.5.0",
     "@changesets/cli": "^2.29.7",
     "@types/bun": "latest",
     "@types/pg": "^8.15.5",
-    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/eslint-plugin": "^8.46.2",
+    "@typescript-eslint/parser": "^8.46.2",
     "drizzle-kit": "^0.31.5",
-    "drizzle-orm": "^0.44.5",
-    "eslint": "^8.57.1",
-    "eslint-config-alloy": "^5.1.2",
+    "drizzle-orm": "^0.44.7",
+    "eslint": "^9.38.0",
     "eslint-config-prettier": "^9.1.2",
-    "eslint-plugin-alloy": "^1.2.1",
-    "eslint-plugin-import": "^2.32.0",
-    "eslint-plugin-n": "^16.6.2",
-    "eslint-plugin-prettier": "^5.5.4",
-    "eslint-plugin-promise": "^6.6.0",
-    "mysql2": "^3.15.1",
+    "mysql2": "^3.15.3",
     "pg": "^8.16.3",
     "prettier": "^3.6.2",
-    "reflect-metadata": "^0.2.2"
+    "reflect-metadata": "^0.2.2",
+    "typescript-eslint": "^8.46.2"
   },
   "peerDependencies": {
-    "@asenajs/asena": "^0.3.2",
+    "@asenajs/asena": "^0.5.0",
     "drizzle-orm": "^0.44.5",
     "typescript": "^5.9.2",
-    "pg": "^8.0.0",
-    "mysql2": "^3.0.0",
-    "reflect-metadata": "^0.1.13"
+    "mysql2": ">=2",
+    "pg": ">=8",
+    "reflect-metadata": "^0.2.2"
   }
 }

@@ -4,7 +4,6 @@ import { DatabaseAdapter } from './DatabaseAdapter';
 import type { DatabaseConfig, DrizzleConfig } from '../types';
 
 export class MySQLAdapter extends DatabaseAdapter<MySql2Database<any>> {
-
   private client: any | null = null;
 
   public constructor(config: DatabaseConfig, drizzleConfig?: DrizzleConfig) {
@@ -71,5 +70,4 @@ export class MySQLAdapter extends DatabaseAdapter<MySql2Database<any>> {
 
     return `mysql://${user}:${password}@${host}:${port}/${database}${sslParam}`;
   }
-
 }

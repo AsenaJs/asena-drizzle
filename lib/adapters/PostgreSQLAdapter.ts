@@ -4,7 +4,6 @@ import { DatabaseAdapter } from './DatabaseAdapter';
 import type { DatabaseConfig, DrizzleConfig } from '../types';
 
 export class PostgreSQLAdapter extends DatabaseAdapter<NodePgDatabase<any>> {
-
   private pool: any | null = null;
 
   public constructor(config: DatabaseConfig, drizzleConfig?: DrizzleConfig) {
@@ -75,5 +74,4 @@ export class PostgreSQLAdapter extends DatabaseAdapter<NodePgDatabase<any>> {
 
     return `postgresql://${user}:${password}@${host}:${port}/${database}${sslParam}`;
   }
-
 }

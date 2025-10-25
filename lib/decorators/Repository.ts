@@ -120,13 +120,11 @@ export function Repository(options: RepositoryDecoratorOptions) {
     // This prevents the original repository class from being added to the dependency chain
     @Service(options.name || target.name)
     class RepositoryServiceClass extends BaseRepository<any> {
-
       public constructor() {
         super();
-        this['table'] = options.table; // Set the table schema
+        this.table = options.table; // Set the table schema
       }
-    
-}
+    }
 
     // Add database injection via decorator to the wrapper class
     const databaseServiceName = options.databaseService;
@@ -169,7 +167,7 @@ export function Repository(options: RepositoryDecoratorOptions) {
     Object.defineProperty(RepositoryServiceClass, 'name', {
       value: target.name,
       writable: false,
-      configurable: true
+      configurable: true,
     });
 
     return RepositoryServiceClass as any;

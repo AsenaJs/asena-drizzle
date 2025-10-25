@@ -88,7 +88,6 @@ export function Database(options: DatabaseDecoratorOptions) {
     // without trying to extend the target class (which causes circular dependency)
     @Service(options.name || target.name)
     class DatabaseServiceClass extends AsenaDatabaseService {
-
       public constructor() {
         // Call super without parameters for AsenaJS property injection
         super();
@@ -100,8 +99,7 @@ export function Database(options: DatabaseDecoratorOptions) {
 
         this.setDatabaseOptions(options);
       }
-    
-}
+    }
 
     // Copy only the methods from target prototype, not the constructor
     Object.getOwnPropertyNames(target.prototype).forEach((name) => {
@@ -139,7 +137,7 @@ export function Database(options: DatabaseDecoratorOptions) {
     Object.defineProperty(DatabaseServiceClass, 'name', {
       value: target.name,
       writable: false,
-      configurable: true
+      configurable: true,
     });
 
     return DatabaseServiceClass as any;

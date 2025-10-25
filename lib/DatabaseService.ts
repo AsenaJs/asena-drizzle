@@ -35,7 +35,6 @@ import { BunSQLAdapter, MySQLAdapter, PostgreSQLAdapter } from './adapters';
  * ```
  */
 export abstract class AsenaDatabaseService<T = any> {
-
   protected adapter: DatabaseAdapter<T> | null = null;
 
   protected options: DatabaseOptions | null = null;
@@ -163,8 +162,7 @@ export abstract class AsenaDatabaseService<T = any> {
         throw new Error('SQLite adapter not implemented yet');
 
       default:
-        throw new Error(`Unsupported database type: ${type}`);
+        throw new Error(`Unsupported database type: ${type as string}`);
     }
   }
-
 }

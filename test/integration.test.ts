@@ -31,11 +31,9 @@ class TestDatabase extends AsenaDatabaseService {}
   name: 'TestUserRepository',
 })
 class TestUserRepository extends BaseRepository<typeof testUsers> {
-
   public async findByEmail(email: string) {
     return this.findOne(eq(testUsers.email, email));
   }
-
 }
 
 describe('AsenaJS Drizzle Integration', () => {

@@ -5,7 +5,6 @@ import { DatabaseAdapter } from './DatabaseAdapter';
 import type { DatabaseConfig, DrizzleConfig } from '../types';
 
 export class BunSQLAdapter extends DatabaseAdapter<BunSQLDatabase<any>> {
-
   private client: SQL | null = null;
 
   public constructor(config: DatabaseConfig, drizzleConfig?: DrizzleConfig) {
@@ -49,5 +48,4 @@ export class BunSQLAdapter extends DatabaseAdapter<BunSQLDatabase<any>> {
 
     this._connection = null;
   }
-
 }

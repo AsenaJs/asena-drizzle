@@ -2,7 +2,6 @@ import { sql } from 'drizzle-orm';
 import type { DatabaseConfig, DrizzleConfig } from '../types';
 
 export abstract class DatabaseAdapter<T> {
-
   protected _connection: T | null = null;
 
   protected config: DatabaseConfig;
@@ -23,7 +22,7 @@ export abstract class DatabaseAdapter<T> {
       // Try to execute a simple query
       await (this._connection as any).execute(sql`SELECT 1`);
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -52,5 +51,4 @@ export abstract class DatabaseAdapter<T> {
 
     return this._connection;
   }
-
 }
