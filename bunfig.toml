@@ -1,0 +1,10 @@
+[test]
+
+coverage = true
+
+coverageSkipTestFiles = true
+
+
+
+[test.reporter]
+junit = "junit.xml"

@@ -22,7 +22,6 @@ module.exports = tseslint.config(
       '*.js',
       '*.mjs',
       'test/**',
-      'test/**/**',
       '**/*.test.ts',
       '**/*.spec.ts',
       'eslint.config.cjs', // Ignore config file itself
