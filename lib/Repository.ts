@@ -128,7 +128,6 @@ export abstract class BaseRepository<
   InsertType = T['$inferInsert'],
   IdType = SelectType extends { id: infer U } ? U : string,
 > {
-
   private _db!: DatabaseConnection; // Will be injected by AsenaJS IoC
 
   private _table!: T; // Will be set by @Repository decorator
@@ -452,7 +451,7 @@ export abstract class BaseRepository<
    * );
    * ```
    */
-  // eslint-disable-next-line max-params
+
   public async paginate(
     page = 1,
     limit = 10,
@@ -520,5 +519,4 @@ export abstract class BaseRepository<
 
     return result.length > 0;
   }
-
 }

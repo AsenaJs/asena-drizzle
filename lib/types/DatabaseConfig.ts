@@ -62,9 +62,9 @@ export interface DrizzleConfig {
 
 /**
  * Supported database types.
- * 
+ *
  * @typedef {('postgresql' | 'mysql' | 'sqlite' | 'bun-sql')} DatabaseType
- * 
+ *
  * - `postgresql`: PostgreSQL database (via pg/node-postgres) with connection pooling
  * - `mysql`: MySQL database (via mysql2)
  * - `sqlite`: SQLite database (not yet implemented)

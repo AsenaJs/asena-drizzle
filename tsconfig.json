@@ -28,5 +28,5 @@
     "noPropertyAccessFromIndexSignature": true,
     "types": ["bun-types"]
   },
-  "exclude": ["node_modules", "lib/test/**/*.ts", "**/*.test.ts", "**/*.spec.ts","examples"],
+  "exclude": ["node_modules", "lib/test/**/*.ts", "**/*.test.ts", "**/*.spec.ts", "examples"]
 }

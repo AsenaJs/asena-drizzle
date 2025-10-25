@@ -20,7 +20,6 @@ const users = pgTable('users', {
   name: 'UserRepository', // Optional service name
 })
 export class UserRepository extends BaseRepository<typeof users> {
-
   // Custom methods specific to User
   public async findByEmail(email: string) {
     return this.findOne(eq(users.email, email));
@@ -34,5 +33,4 @@ export class UserRepository extends BaseRepository<typeof users> {
   public async updateEmail(id: string, newEmail: string) {
     return this.updateById(id, { email: newEmail });
   }
-
 }
