@@ -1,6 +1,6 @@
 {
   "name": "@asenajs/asena-drizzle",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "author": "LibirSoft",
   "description": "Type-safe database integration for AsenaJS with Drizzle ORM - Repository pattern, decorators, and multi-database support",
   "main": "dist/index.js",
