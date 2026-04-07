@@ -1,4 +1,4 @@
-import { PostConstruct } from '@asenajs/asena/ioc';
+import { PostConstruct } from '@asenajs/asena/decorators/ioc';
 import type { DatabaseOptions } from './types';
 import type { DatabaseAdapter } from './adapters';
 import { BunSQLAdapter, MySQLAdapter, PostgreSQLAdapter } from './adapters';

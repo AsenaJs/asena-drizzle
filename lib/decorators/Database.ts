@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import type { DatabaseOptions } from '../types';
 import { AsenaDatabaseService } from '../DatabaseService';
-import { Service } from '@asenajs/asena/server';
+import { Service } from '@asenajs/asena/decorators';
 import { defineMetadata, getMetadata, getMetadataKeys } from 'reflect-metadata/no-conflict';
 
 /**
