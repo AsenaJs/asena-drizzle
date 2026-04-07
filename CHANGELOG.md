@@ -1,5 +1,11 @@
 # @asenajs/asena-drizzle
 
+## 1.1.1
+
+### Patch Changes
+
+- Missleading lockfile changed to correct one
+
 ## 1.1.0
 
 ### Minor Changes
