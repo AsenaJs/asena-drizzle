@@ -69,8 +69,8 @@ export class UserRepository extends BaseRepository<typeof users> {
 ### 3. Service Usage
 
 ```typescript
-import { Service } from '@asenajs/asena/server';
-import { Inject } from '@asenajs/asena/ioc';
+import { Service } from '@asenajs/asena/decorators';
+import { Inject } from '@asenajs/asena/decorators/ioc';
 
 @Service("UserService")
 export class UserService {

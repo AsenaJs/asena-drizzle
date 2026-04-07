@@ -1,6 +1,6 @@
 import 'reflect-metadata';
-import { Service } from '@asenajs/asena/server';
-import { Inject } from '@asenajs/asena/ioc';
+import { Service } from '@asenajs/asena/decorators';
+import { Inject } from '@asenajs/asena/decorators/ioc';
 import { BaseRepository, type TableWithId } from '../Repository';
 import { defineMetadata, getMetadata, getMetadataKeys } from 'reflect-metadata/no-conflict';
 

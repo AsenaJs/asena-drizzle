@@ -1,5 +1,28 @@
 # @asenajs/asena-drizzle
 
+## 1.1.0
+
+### Minor Changes
+
+- ### Import Path Migration
+  - `@asenajs/asena/server` → `@asenajs/asena/decorators` (Database.ts, Repository.ts)
+  - `@asenajs/asena/ioc` → `@asenajs/asena/decorators/ioc` (DatabaseService.ts, Repository.ts)
+  - README examples updated to reflect new import paths
+
+  ### Configuration
+  - Changeset baseBranch corrected from `main` to `master`
+  - Coverage path ignore patterns added to bunfig.toml
+
+  ### Dependency Updates
+  - `@asenajs/asena` `0.5.0` → `^0.7.0` (dev + peer)
+  - `drizzle-kit` `^0.31.5` → `^0.31.10`
+  - `@types/pg` `^8.15.5` → `^8.20.0`
+  - `pg` `^8.16.3` → `^8.20.0`
+  - `mysql2` `^3.15.3` → `^3.20.0`
+  - `eslint` `^9.38.0` → `^9.39.4`
+  - `prettier` `^3.6.2` → `^3.8.1`
+  - `typescript-eslint` `^8.46.2` → `^8.58.0`
+
 ## 1.0.2
 
 ### Patch Changes
