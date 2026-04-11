@@ -1,5 +1,22 @@
 # @asenajs/asena-drizzle
 
+## 1.1.2
+
+### Patch Changes
+
+- ### Fixes
+  - **Pagination Validation**: `paginate()` now clamps `page` and `limit` parameters to a minimum of 1, preventing invalid offset/limit values in database queries.
+
+  ### Dependencies
+  - `drizzle-orm`: 0.44.7 -> 0.45.2
+  - `mysql2`: 3.20.0 -> 3.22.0
+  - `prettier`: 3.8.1 -> 3.8.2
+  - `typescript-eslint`: 8.58.0 -> 8.58.1
+
+  ### Tests
+  - Rewrote pagination test suite with reusable helpers.
+  - Added tests: empty results, page clamping, limit clamping, where/orderBy propagation.
+
 ## 1.1.1
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@asenajs/asena-drizzle",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "author": "LibirSoft",
   "description": "Type-safe database integration for AsenaJS with Drizzle ORM - Repository pattern, decorators, and multi-database support",
   "main": "dist/index.js",
@@ -56,22 +56,22 @@
     "@changesets/cli": "^2.30.0",
     "@types/bun": "latest",
     "@types/pg": "^8.20.0",
-    "@typescript-eslint/eslint-plugin": "^8.58.0",
-    "@typescript-eslint/parser": "^8.58.0",
+    "@typescript-eslint/eslint-plugin": "^8.58.1",
+    "@typescript-eslint/parser": "^8.58.1",
     "drizzle-kit": "^0.31.10",
-    "drizzle-orm": "^0.44.7",
+    "drizzle-orm": "^0.45.2",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^9.1.2",
-    "mysql2": "^3.20.0",
+    "mysql2": "^3.22.0",
     "pg": "^8.20.0",
-    "prettier": "^3.8.1",
+    "prettier": "^3.8.2",
     "reflect-metadata": "^0.2.2",
-    "typescript-eslint": "^8.58.0"
+    "typescript-eslint": "^8.58.1"
   },
   "peerDependencies": {
     "@asenajs/asena": "^0.7.0",
-    "drizzle-orm": "^0.44.5",
-    "typescript": "^5.9.2",
+    "drizzle-orm": "^0.45.2",
+    "typescript": "^5.9.3",
     "mysql2": ">=2",
     "pg": ">=8",
     "reflect-metadata": "^0.2.2"

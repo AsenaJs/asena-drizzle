@@ -464,6 +464,9 @@ export abstract class BaseRepository<
     limit: number;
     totalPages: number;
   }> {
+    page = Math.max(1, page);
+    limit = Math.max(1, limit);
+
     const offset = (page - 1) * limit;
 
     // Get total count
