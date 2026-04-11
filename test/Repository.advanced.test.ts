@@ -409,203 +409,138 @@ describe('BaseRepository - Advanced Operations', () => {
   });
 
   describe('paginate', () => {
-    it.skip('should return paginated results with metadata', async () => {
-      const page1Data = mockData.slice(0, 2);
+    // Helper: creates a self-referencing query mock that mirrors Drizzle's mutable builder pattern
+    function createQueryMock(data: any[]) {
+      const query: any = { execute: mock(async () => data) };
 
-      // Create separate mocks for count and data queries
-      let callCount = 0;
+      query.where = mock(() => query);
+      query.limit = mock(() => query);
+      query.offset = mock(() => query);
+      query.orderBy = mock(() => query);
+
+      return query;
+    }
+
+    function setupPaginate(total: number, data: any[]) {
+      // @ts-ignore - spy countBy so we only need to mock the data query
+      repository.countBy = mock(async () => total);
+
+      const dataQuery = createQueryMock(data);
+
       // @ts-ignore
-      mockDb.select = mock((fields?: any) => {
-        callCount++;
-        if (callCount === 1) {
-          // First call is countBy
-          return {
-            from: mock(() => ({
-              execute: mock(async () => [{ count: 4 }]),
-            })),
-          };
-        } else {
-          // Second call is actual data query
-          return {
-            from: mock(() => ({
-              limit: mock(() => ({
-                offset: mock(() => ({
-                  execute: mock(async () => page1Data),
-                })),
-              })),
-            })),
-          };
-        }
-      });
+      mockDb.select = mock(() => ({ from: mock(() => dataQuery) }));
+
+      return dataQuery;
+    }
+
+    it('should return paginated results with metadata', async () => {
+      setupPaginate(4, mockData.slice(0, 2));
 
       const result = await repository.paginate(1, 2);
 
       expect(result).toBeDefined();
-      expect(result.data.length).toBe(2);
+      expect(result.data).toEqual(mockData.slice(0, 2));
       expect(result.page).toBe(1);
       expect(result.limit).toBe(2);
       expect(result.total).toBe(4);
       expect(result.totalPages).toBe(2);
     });
 
-    it.skip('should calculate correct offset for page 2', async () => {
-      const page2Data = mockData.slice(2, 4);
-      const offsetMock = mock((offset: number) => {
-        expect(offset).toBe(2); // (page 2 - 1) * limit 2 = 2
-        return {
-          execute: mock(async () => page2Data),
-        };
-      });
-
-      let callCount = 0;
-      // @ts-ignore
-      mockDb.select = mock(() => {
-        callCount++;
-        if (callCount === 1) {
-          return {
-            from: mock(() => ({
-              execute: mock(async () => [{ count: 4 }]),
-            })),
-          };
-        } else {
-          return {
-            from: mock(() => ({
-              limit: mock(() => ({ offset: offsetMock })),
-            })),
-          };
-        }
-      });
+    it('should calculate correct offset for page 2', async () => {
+      const dataQuery = setupPaginate(4, mockData.slice(2, 4));
 
       const result = await repository.paginate(2, 2);
 
       expect(result.page).toBe(2);
-      expect(offsetMock).toHaveBeenCalledWith(2);
+      expect(dataQuery.limit).toHaveBeenCalledWith(2);
+      expect(dataQuery.offset).toHaveBeenCalledWith(2); // (2-1)*2 = 2
     });
 
-    it.skip('should use default pagination values', async () => {
-      let callCount = 0;
-      // @ts-ignore
-      mockDb.select = mock(() => {
-        callCount++;
-        if (callCount === 1) {
-          return {
-            from: mock(() => ({
-              execute: mock(async () => [{ count: 4 }]),
-            })),
-          };
-        } else {
-          return {
-            from: mock(() => ({
-              limit: mock(() => ({
-                offset: mock(() => ({
-                  execute: mock(async () => mockData.slice(0, 10)),
-                })),
-              })),
-            })),
-          };
-        }
-      });
+    it('should use default pagination values', async () => {
+      const dataQuery = setupPaginate(4, mockData);
 
       const result = await repository.paginate();
 
       expect(result.page).toBe(1);
       expect(result.limit).toBe(10);
+      expect(dataQuery.limit).toHaveBeenCalledWith(10);
+      expect(dataQuery.offset).toHaveBeenCalledWith(0); // (1-1)*10 = 0
     });
 
-    it.skip('should handle filtering with where clause', async () => {
-      const whereMock = mock(() => ({
-        execute: mock(async () => [{ count: 1 }]),
-      }));
+    it('should handle filtering with where clause', async () => {
+      const whereCondition = eq(testUsers.status, 'active');
+      const dataQuery = setupPaginate(1, [mockData[0]]);
 
-      let callCount = 0;
-      // @ts-ignore
-      mockDb.select = mock(() => {
-        callCount++;
-        if (callCount === 1) {
-          return {
-            from: mock(() => ({
-              where: whereMock,
-            })),
-          };
-        } else {
-          return {
-            from: mock(() => ({
-              where: mock(() => ({
-                limit: mock(() => ({
-                  offset: mock(() => ({
-                    execute: mock(async () => [mockData[0]]),
-                  })),
-                })),
-              })),
-            })),
-          };
-        }
-      });
+      await repository.paginate(1, 10, whereCondition);
 
-      const result = await repository.paginate(1, 10, eq(testUsers.status, 'active'));
-
-      expect(whereMock).toHaveBeenCalled();
+      expect(repository.countBy).toHaveBeenCalledWith(whereCondition);
+      expect(dataQuery.where).toHaveBeenCalledWith(whereCondition);
     });
 
-    it.skip('should calculate total pages correctly', async () => {
-      let callCount = 0;
-      // @ts-ignore
-      mockDb.select = mock(() => {
-        callCount++;
-        if (callCount === 1) {
-          return {
-            from: mock(() => ({
-              execute: mock(async () => [{ count: 25 }]),
-            })),
-          };
-        } else {
-          return {
-            from: mock(() => ({
-              limit: mock(() => ({
-                offset: mock(() => ({
-                  execute: mock(async () => []),
-                })),
-              })),
-            })),
-          };
-        }
-      });
+    it('should calculate total pages correctly', async () => {
+      setupPaginate(25, []);
 
       const result = await repository.paginate(1, 10);
 
       expect(result.totalPages).toBe(3); // ceil(25/10) = 3
     });
 
-    it.skip('should handle last page with fewer items', async () => {
-      const lastPageData = [mockData[0]]; // Only 1 item on last page
-
-      let callCount = 0;
-      // @ts-ignore
-      mockDb.select = mock(() => {
-        callCount++;
-        if (callCount === 1) {
-          return {
-            from: mock(() => ({
-              execute: mock(async () => [{ count: 7 }]),
-            })),
-          };
-        } else {
-          return {
-            from: mock(() => ({
-              limit: mock(() => ({
-                offset: mock(() => ({
-                  execute: mock(async () => lastPageData),
-                })),
-              })),
-            })),
-          };
-        }
-      });
+    it('should handle last page with fewer items', async () => {
+      const dataQuery = setupPaginate(7, [mockData[0]]);
 
       const result = await repository.paginate(3, 3);
 
       expect(result.data.length).toBe(1);
       expect(result.totalPages).toBe(3); // ceil(7/3) = 3
+      expect(dataQuery.offset).toHaveBeenCalledWith(6); // (3-1)*3 = 6
+    });
+
+    it('should handle empty results', async () => {
+      setupPaginate(0, []);
+
+      const result = await repository.paginate(1, 10);
+
+      expect(result.data).toEqual([]);
+      expect(result.total).toBe(0);
+      expect(result.totalPages).toBe(0);
+    });
+
+    it('should clamp page to minimum 1', async () => {
+      const dataQuery = setupPaginate(10, mockData);
+
+      const result = await repository.paginate(0, 5);
+
+      expect(result.page).toBe(1);
+      expect(dataQuery.offset).toHaveBeenCalledWith(0);
+    });
+
+    it('should clamp limit to minimum 1', async () => {
+      setupPaginate(10, mockData);
+
+      const result = await repository.paginate(1, 0);
+
+      expect(result.limit).toBe(1);
+      expect(result.totalPages).toBe(10); // ceil(10/1) = 10
+    });
+
+    it('should pass where to both count and data queries', async () => {
+      const whereCondition = eq(testUsers.status, 'active');
+      const dataQuery = setupPaginate(2, [mockData[0]]);
+
+      await repository.paginate(1, 10, whereCondition);
+
+      expect(repository.countBy).toHaveBeenCalledWith(whereCondition);
+      expect(dataQuery.where).toHaveBeenCalledWith(whereCondition);
+    });
+
+    it('should pass orderBy to data query', async () => {
+      const orderByClause = sql`name ASC`;
+      const dataQuery = setupPaginate(4, mockData);
+
+      await repository.paginate(1, 10, undefined, orderByClause);
+
+      expect(dataQuery.orderBy).toHaveBeenCalledWith(orderByClause);
+      expect(dataQuery.where).not.toHaveBeenCalled();
     });
   });
 });
