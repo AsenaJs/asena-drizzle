@@ -123,13 +123,22 @@ export function Repository(options: RepositoryDecoratorOptions) {
       public constructor() {
         super();
         this.table = options.table; // Set the table schema
+        // Record the backing database service name so the ALS-aware getter in
+        // BaseRepository can look up the active transaction in multi-database
+        // setups.
+        (this as unknown as { databaseServiceName: string }).databaseServiceName = options.databaseService;
       }
     }
 
     // Add database injection via decorator to the wrapper class
     const databaseServiceName = options.databaseService;
 
-    Inject(databaseServiceName, (service: any) => service.connection)(RepositoryServiceClass.prototype, 'db');
+    // Target the private backing field rather than `db` itself. The IoC
+    // container installs an *own-property* getter for whatever key it sees,
+    // and an own `db` would shadow the ALS-aware prototype getter on
+    // BaseRepository (causing repository writes inside @Transaction to bypass
+    // the active tx and hit the pool).
+    Inject(databaseServiceName, (service: any) => service.connection)(RepositoryServiceClass.prototype, '_db');
 
     // Copy only the custom methods from target prototype (user's repository methods)
     Object.getOwnPropertyNames(target.prototype).forEach((name) => {

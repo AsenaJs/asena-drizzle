@@ -542,5 +542,128 @@ describe('BaseRepository - Advanced Operations', () => {
       expect(dataQuery.orderBy).toHaveBeenCalledWith(orderByClause);
       expect(dataQuery.where).not.toHaveBeenCalled();
     });
+
+    it('should fall back to ordering by id when orderBy is omitted', async () => {
+      const dataQuery = setupPaginate(4, mockData);
+
+      await repository.paginate(1, 10);
+
+      // Deterministic pagination guard: without a stable user-supplied order
+      // the repository must still apply one so rows do not interleave across
+      // pages. We verify that orderBy() was called exactly once with a
+      // non-null argument (Drizzle's `asc(column)` expression).
+      expect(dataQuery.orderBy).toHaveBeenCalledTimes(1);
+
+      const orderArg = (dataQuery.orderBy as any).mock.calls[0][0];
+
+      expect(orderArg).toBeDefined();
+      expect(orderArg).not.toBeNull();
+    });
+  });
+
+  describe('findBy / existsBy shortcuts', () => {
+    it('findBy delegates to findAll with eq(column, value)', async () => {
+      const findAllSpy = mock(async () => [mockData[0]]);
+
+      // @ts-ignore — replace findAll to avoid re-mocking the full builder chain
+      repository.findAll = findAllSpy;
+
+      const result = await repository.findBy('email', 'alice@test.com');
+
+      expect(findAllSpy).toHaveBeenCalledTimes(1);
+      expect(result).toEqual([mockData[0]]);
+    });
+
+    it('existsBy delegates to exists with eq(column, value)', async () => {
+      const existsSpy = mock(async () => true);
+
+      // @ts-ignore
+      repository.exists = existsSpy;
+
+      const result = await repository.existsBy('status', 'active');
+
+      expect(existsSpy).toHaveBeenCalledTimes(1);
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('updateMany / deleteMany aliases', () => {
+    it('updateMany is an alias of update(where, data)', async () => {
+      const updateSpy = mock(async () => [mockData[0]]);
+
+      // @ts-ignore
+      repository.update = updateSpy;
+
+      const where = eq(testUsers.status, 'inactive');
+      const payload = { status: 'active' as const };
+      const result = await repository.updateMany(where, payload);
+
+      expect(updateSpy).toHaveBeenCalledWith(where, payload);
+      expect(result).toEqual([mockData[0]]);
+    });
+
+    it('deleteMany is an alias of delete(where)', async () => {
+      const deleteSpy = mock(async () => 3);
+
+      // @ts-ignore
+      repository.delete = deleteSpy;
+
+      const where = eq(testUsers.status, 'inactive');
+      const result = await repository.deleteMany(where);
+
+      expect(deleteSpy).toHaveBeenCalledWith(where);
+      expect(result).toBe(3);
+    });
+  });
+
+  describe('transaction (programmatic)', () => {
+    it('delegates to db.transaction with the callback', async () => {
+      const transactionSpy = mock(async (cb: any) => cb('TX'));
+
+      // @ts-ignore — augment mockDb with a transaction() member
+      mockDb.transaction = transactionSpy;
+
+      const result = await repository.transaction(async (tx) => {
+        expect(tx).toBe('TX' as any);
+        return 'done';
+      });
+
+      expect(transactionSpy).toHaveBeenCalledTimes(1);
+      expect(result).toBe('done');
+    });
+
+    it('forwards isolationLevel and accessMode to Drizzle config', async () => {
+      let captured: Record<string, unknown> | undefined;
+      const transactionSpy = mock(async (cb: any, cfg: any) => {
+        captured = cfg;
+        return cb({});
+      });
+
+      // @ts-ignore
+      mockDb.transaction = transactionSpy;
+
+      await repository.transaction(async () => 1, {
+        isolationLevel: 'serializable',
+        accessMode: 'read write',
+      });
+
+      expect(captured).toEqual({ isolationLevel: 'serializable', accessMode: 'read write' });
+    });
+
+    it('omits the config argument when no options are supplied', async () => {
+      let capturedArgs: any[] | undefined;
+      const transactionSpy = mock(async (...args: any[]) => {
+        capturedArgs = args;
+        return args[0]({});
+      });
+
+      // @ts-ignore
+      mockDb.transaction = transactionSpy;
+
+      await repository.transaction(async () => 'ok');
+
+      expect(capturedArgs?.length).toBe(2);
+      expect(capturedArgs?.[1]).toBeUndefined();
+    });
   });
 });

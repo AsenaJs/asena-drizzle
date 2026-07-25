@@ -261,7 +261,7 @@ describe('AsenaDatabaseService', () => {
           user: 'invalid',
           password: 'invalid',
         },
-              // @ts-ignore
+        // @ts-ignore
         logger: mockLogger,
       };
 
@@ -280,7 +280,7 @@ describe('AsenaDatabaseService', () => {
           schema,
           logger: true,
         },
-              // @ts-ignore
+        // @ts-ignore
         logger: mockLogger,
       };
 
@@ -297,7 +297,7 @@ describe('AsenaDatabaseService', () => {
       const options: DatabaseOptions = {
         type: 'invalid-type' as any,
         config: baseConfig,
-              // @ts-ignore
+        // @ts-ignore
         logger: mockLogger,
       };
 
@@ -310,7 +310,7 @@ describe('AsenaDatabaseService', () => {
       const options: DatabaseOptions = {
         type: 'postgresql',
         config: {} as DatabaseConfig,
-              // @ts-ignore
+        // @ts-ignore
         logger: mockLogger,
       };
 
@@ -330,7 +330,7 @@ describe('AsenaDatabaseService', () => {
           ...baseConfig,
           name: 'MyProductionDB',
         },
-              // @ts-ignore
+        // @ts-ignore
         logger: mockLogger,
       };
 
@@ -347,7 +347,7 @@ describe('AsenaDatabaseService', () => {
           ...baseConfig,
           ssl: true,
         },
-              // @ts-ignore
+        // @ts-ignore
         logger: mockLogger,
       };
 
@@ -364,7 +364,7 @@ describe('AsenaDatabaseService', () => {
           ...baseConfig,
           connectionString: 'postgresql://user:pass@localhost:5432/db',
         },
-              // @ts-ignore
+        // @ts-ignore
         logger: mockLogger,
       };
 

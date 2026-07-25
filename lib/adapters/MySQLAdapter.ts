@@ -16,7 +16,7 @@ export class MySQLAdapter extends DatabaseAdapter<MySql2Database<any>> {
       let mysql: any;
 
       try {
-        mysql = (await import('mysql2/promise' as any)).default;
+        mysql = (await import('mysql2/promise')).default;
       } catch {
         throw new Error('MySQL adapter requires "mysql2" package. Install it with: bun add mysql2');
       }

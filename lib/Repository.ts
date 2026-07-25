@@ -1,4 +1,6 @@
-import { type Column, count, eq, type SQL, sql, type Table } from 'drizzle-orm';
+import { asc, type Column, count, eq, type SQL, sql, type Table } from 'drizzle-orm';
+import { runWithTx, TransactionContext } from './transaction/TransactionContext';
+import type { TransactionOptions } from './transaction/TransactionOptions';
 
 /**
  * Table interface that requires an 'id' column.
@@ -132,13 +134,30 @@ export abstract class BaseRepository<
 
   private _table!: T; // Will be set by @Repository decorator
 
+  // Name of the @Database service backing this repository, set by the
+  // @Repository decorator. Used to look up the active transaction in the
+  // ALS store for multi-database scenarios.
+  private _databaseServiceName?: string;
+
   /**
    * Gets the Drizzle database connection instance.
    *
-   * @returns {DatabaseConnection} The database connection
+   * When the repository is called inside a `@Transaction`-wrapped method the
+   * active transaction for this repository's database is returned; otherwise
+   * the pooled connection is returned.
+   *
+   * @returns {DatabaseConnection} Transaction-aware database connection
    * @throws {Error} If database connection is not initialized
    */
   public get db(): DatabaseConnection {
+    if (this._databaseServiceName) {
+      const activeTx = TransactionContext.getStore()?.byDatabase.get(this._databaseServiceName);
+
+      if (activeTx !== undefined) {
+        return activeTx as DatabaseConnection;
+      }
+    }
+
     if (!this._db) {
       throw new Error('Database connection not initialized. Make sure @Repository decorator is applied properly.');
     }
@@ -149,6 +168,19 @@ export abstract class BaseRepository<
   // Setter for database connection (used by decorator)
   protected set db(database: DatabaseConnection) {
     this._db = database;
+  }
+
+  /**
+   * Name of the @Database service backing this repository, if known.
+   * Primarily used by the transaction subsystem.
+   */
+  public get databaseServiceName(): string | undefined {
+    return this._databaseServiceName;
+  }
+
+  // Setter used by the @Repository decorator.
+  protected set databaseServiceName(name: string | undefined) {
+    this._databaseServiceName = name;
   }
 
   /**
@@ -479,10 +511,11 @@ export abstract class BaseRepository<
       query.where(where);
     }
 
-    if (orderBy) {
-      query.orderBy(orderBy);
-    }
-
+    // Deterministic pagination: without a stable order, the underlying store
+    // may return rows in different orders across pages, causing duplicates or
+    // skipped rows. Fall back to ordering by the primary key when the caller
+    // did not specify one.
+    query.orderBy(orderBy ?? asc(this.table.id));
     query.limit(limit).offset(offset);
 
     const data = (await query.execute()) as SelectType[];
@@ -494,6 +527,81 @@ export abstract class BaseRepository<
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  /**
+   * Shortcut for `findAll(eq(table[field], value))`.
+   *
+   * @param field - Column name (must be a key of the row type)
+   * @param value - Value to match
+   */
+  public async findBy<K extends keyof SelectType>(field: K, value: SelectType[K]): Promise<SelectType[]> {
+    return this.findAll(eq((this.table as any)[field], value));
+  }
+
+  /**
+   * Shortcut for `exists(eq(table[field], value))`.
+   */
+  public async existsBy<K extends keyof SelectType>(field: K, value: SelectType[K]): Promise<boolean> {
+    return this.exists(eq((this.table as any)[field], value));
+  }
+
+  /**
+   * Updates every row matching `where`. Alias of {@link update} provided for
+   * naming symmetry with {@link deleteMany} and the documented public API.
+   */
+  public async updateMany(where: SQL, data: Partial<InsertType>): Promise<SelectType[]> {
+    return this.update(where, data);
+  }
+
+  /**
+   * Deletes every row matching `where`. Alias of {@link delete}.
+   */
+  public async deleteMany(where: SQL): Promise<number> {
+    return this.delete(where);
+  }
+
+  /**
+   * Runs `callback` inside a Drizzle transaction.
+   *
+   * When called from inside an active `@Transaction` scope for the same
+   * database, this opens a savepoint via `tx.transaction()`. Otherwise, a new
+   * top-level transaction is started on the underlying connection.
+   *
+   * @param callback - Function that receives the transactional database handle
+   * @param options - Optional isolation level / access mode forwarded to Drizzle
+   *
+   * @example
+   * ```typescript
+   * await userRepo.transaction(async (tx) => {
+   *   await userRepo.create({ name: 'Ada' });
+   *   await profileRepo.create({ userId: 'u1' });
+   * });
+   * ```
+   */
+  public async transaction<R>(
+    callback: (tx: DatabaseConnection) => Promise<R>,
+    options?: { isolationLevel?: TransactionOptions['isolationLevel']; accessMode?: TransactionOptions['accessMode'] },
+  ): Promise<R> {
+    const runner = this.db as unknown as {
+      transaction<Q>(cb: (tx: unknown) => Promise<Q>, config?: Record<string, unknown>): Promise<Q>;
+    };
+
+    const drizzleConfig: Record<string, unknown> = {};
+
+    if (options?.isolationLevel !== undefined) drizzleConfig['isolationLevel'] = options.isolationLevel;
+    if (options?.accessMode !== undefined) drizzleConfig['accessMode'] = options.accessMode;
+
+    const config = Object.keys(drizzleConfig).length > 0 ? drizzleConfig : undefined;
+    const dbName = this._databaseServiceName;
+
+    return runner.transaction(async (tx) => {
+      // Bind the tx into ALS so nested repository calls inside the callback
+      // (e.g. `this.create(...)`) join this transaction instead of falling
+      // through to the pooled connection.
+      if (!dbName) return callback(tx as DatabaseConnection);
+      return runWithTx(dbName, tx, () => callback(tx as DatabaseConnection));
+    }, config);
   }
 
   /**

@@ -1,4 +1,6 @@
-import { PostConstruct } from '@asenajs/asena/decorators/ioc';
+import { Inject, PostConstruct } from '@asenajs/asena/decorators/ioc';
+import { ICoreServiceNames } from '@asenajs/asena/ioc/types';
+import type { ServerLogger } from '@asenajs/asena/logger';
 import type { DatabaseOptions } from './types';
 import type { DatabaseAdapter } from './adapters';
 import { BunSQLAdapter, MySQLAdapter, PostgreSQLAdapter } from './adapters';
@@ -38,6 +40,13 @@ export abstract class AsenaDatabaseService<T = any> {
   protected adapter: DatabaseAdapter<T> | null = null;
 
   protected options: DatabaseOptions | null = null;
+
+  // Injected by AsenaJS IoC when the service is resolved by the container.
+  // Used as the default logger when @Database was not given an explicit one.
+  // The cast on the @Inject decorator is a no-op at runtime — the name is
+  // always registered as a core service by CoreContainer.
+  @Inject(ICoreServiceNames.SERVER_LOGGER)
+  protected serverLogger?: ServerLogger;
 
   /**
    * Tests the database connection to ensure it's active and working.
@@ -85,6 +94,15 @@ export abstract class AsenaDatabaseService<T = any> {
       // Check if options are set before proceeding
       if (!this.options) {
         throw new Error('Database options not initialized. Make sure to use @Database decorator properly.');
+      }
+
+      // Resolve the runtime logger now that DI has completed:
+      //   explicit option > AsenaJS ServerLogger (if available) > console.
+      // The @Database decorator only guarantees that some logger is present
+      // (it defaults to console); here we upgrade to the server logger when
+      // the user did not supply one of their own.
+      if (!this.options.logger || this.options.logger === console) {
+        this.options.logger = this.serverLogger ?? console;
       }
 
       // Create appropriate adapter based on database type
