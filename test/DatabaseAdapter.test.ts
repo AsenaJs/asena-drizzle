@@ -113,9 +113,7 @@ describe('DatabaseAdapter', () => {
     });
 
     it('should throw error when connection is not established', () => {
-      expect(() => adapter.connection).toThrow(
-        'Database connection not established. Call connect() first.',
-      );
+      expect(() => adapter.connection).toThrow('Database connection not established. Call connect() first.');
     });
 
     it('should return connection when established', async () => {
@@ -130,9 +128,7 @@ describe('DatabaseAdapter', () => {
       await adapter.connect();
       await adapter.disconnect();
 
-      expect(() => adapter.connection).toThrow(
-        'Database connection not established. Call connect() first.',
-      );
+      expect(() => adapter.connection).toThrow('Database connection not established. Call connect() first.');
     });
   });
 

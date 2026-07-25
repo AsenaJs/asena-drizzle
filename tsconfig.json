@@ -27,5 +27,13 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": true
   },
-  "exclude": ["node_modules", "test/**/*.ts", "test/utils/*.ts", "**/*.test.ts", "**/*.spec.ts","*.config.*","examples"]
+  "exclude": [
+    "node_modules",
+    "test/**/*.ts",
+    "test/utils/*.ts",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "*.config.*",
+    "examples"
+  ]
 }
