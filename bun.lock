@@ -5,7 +5,7 @@
     "": {
       "name": "@asenajs/asena-drizzle",
       "devDependencies": {
-        "@asenajs/asena": "^0.8.0",
+        "@asenajs/asena": "^0.9.0",
         "@changesets/cli": "^2.31.0",
         "@types/bun": "latest",
         "@types/pg": "^8.20.0",
@@ -22,7 +22,7 @@
         "typescript-eslint": "^8.59.0",
       },
       "peerDependencies": {
-        "@asenajs/asena": "^0.7.0 || ^0.8.0",
+        "@asenajs/asena": "^0.9.0",
         "drizzle-orm": "^0.45.2",
         "mysql2": ">=2",
         "pg": ">=8",
@@ -32,7 +32,7 @@
     },
   },
   "packages": {
-    "@asenajs/asena": ["@asenajs/asena@0.8.0", "", { "dependencies": { "reflect-metadata": "^0.2.2" } }, "sha512-3NzHfSC7CgCRtyHN/ZmeTYQn+zbIns8IKrPJ4xvw8Bie+Ayc8fxf9+v91ZBtTeuctPoNp5ppUqJVQDkHC+rsxw=="],
+    "@asenajs/asena": ["@asenajs/asena@0.9.0", "", { "dependencies": { "reflect-metadata": "^0.2.2" } }, "sha512-HmppB0r/32K6RfVSk9kHzS1dVxco1GbF9a+O1aYEBzDr5YRFET/c6HGne6kpOfZyu8vzGbwtRr8x/u4HkK4aOw=="],
 
     "@babel/runtime": ["@babel/runtime@7.29.7", "", {}, "sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw=="],
 

@@ -1,5 +1,8 @@
 # @asenajs/asena-drizzle
 
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/AsenaJs/asena-drizzle#readme)
+[![Bun Version](https://img.shields.io/badge/Bun-1.3.12%2B-blueviolet)](https://bun.sh)
+
 Drizzle ORM utilities for AsenaJS - A powerful and type-safe database integration package that provides generic Database services and Repository patterns.
 
 ## Features
@@ -15,7 +18,7 @@ Drizzle ORM utilities for AsenaJS - A powerful and type-safe database integratio
 ## Requirements
 
 - [Bun](https://bun.sh) v1.3.12 or higher
-- [@asenajs/asena](https://github.com/AsenaJs/Asena) v0.7.0 or higher
+- [@asenajs/asena](https://github.com/AsenaJs/Asena) v0.9.0 or higher
 - [drizzle-orm](https://orm.drizzle.team) v0.44 or higher
 
 ## Installation

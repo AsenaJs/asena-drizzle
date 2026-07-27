@@ -4,7 +4,7 @@ import { Inject } from '@asenajs/asena/decorators/ioc';
 import type { ComponentPostProcessor } from '@asenajs/asena/ioc/types';
 import { ICoreServiceNames } from '@asenajs/asena/ioc/types';
 import type { Container } from '@asenajs/asena/container';
-import { getOwnTypedMetadata } from '@asenajs/asena/utils';
+import { getOwnTypedMetadata, getPrototypeChainOf } from '@asenajs/asena/utils';
 import { AsenaDatabaseService } from '../DatabaseService';
 import { TRANSACTION_METADATA_KEY, type TransactionOptions } from './TransactionOptions';
 import { DRIZZLE_OPTIONS_KEY, type DrizzleOptions } from './DrizzleOptions';
@@ -46,10 +46,36 @@ export class TransactionPostProcessor implements ComponentPostProcessor {
   // hot transactional path does not repeatedly walk the container map.
   private readonly rootDbCache = new Map<string, TransactableConnectionHolder['connection']>();
 
-  public async postProcess<T>(instance: T, Class: any): Promise<T> {
-    const metadata = getOwnMetadata(TRANSACTION_METADATA_KEY, Class) as Map<string, TransactionOptions> | undefined;
+  /**
+   * Merges every `@Transaction` map on the prototype chain, ancestors first.
+   *
+   * `@Transaction` writes to the class that declares the method, so a shared base class holds
+   * its own map. Reading own-only meant a base class's transactional methods ran with
+   * autocommit - silently, since the method still returned normally and each write committed
+   * on its own. Reading the nearest ancestor instead (`getMetadata`) was worse than it looks:
+   * it worked right up until the concrete class declared a `@Transaction` of its own, at which
+   * point the base's map was shadowed and its methods quietly left the transaction.
+   */
+  private collectTransactionalMethods(Class: any): Map<string, TransactionOptions> {
+    const merged = new Map<string, TransactionOptions>();
 
-    if (!metadata || metadata.size === 0) {
+    for (const link of getPrototypeChainOf(Class)) {
+      const own = getOwnMetadata(TRANSACTION_METADATA_KEY, link) as Map<string, TransactionOptions> | undefined;
+
+      if (!own) continue;
+
+      for (const [methodName, options] of own.entries()) {
+        merged.set(methodName, options);
+      }
+    }
+
+    return merged;
+  }
+
+  public async postProcess<T>(instance: T, Class: any): Promise<T> {
+    const metadata = this.collectTransactionalMethods(Class);
+
+    if (metadata.size === 0) {
       return instance;
     }
 

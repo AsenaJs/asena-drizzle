@@ -1,5 +1,65 @@
 # @asenajs/asena-drizzle
 
+## 2.0.0
+
+### Major Changes
+
+- `@Repository` and `@Database` keep everything the decorated class inherited, and stop clobbering
+  their own metadata
+
+  Both decorators replace the class they decorate with a wrapper. The wrapper extended
+  `BaseRepository`/`AsenaDatabaseService` rather than the target, and the member copy loops only
+  walked the target's _own_ prototype — so every method, getter and static the class inherited from
+  an intermediate base class was dropped. Nothing failed until the first call, where the method was
+  simply `undefined`. `instanceof` against the declared base class was also false.
+
+  The wrapper now extends the target, so the whole prototype chain is preserved and `instanceof`
+  holds.
+
+  The comment this replaced said the wrapper existed to keep the original class out of the
+  dependency chain. The real problem was in the container: the wrapper is registered under the
+  target's own name, and `IocEngine.getDependencies` counted the parent as a dependency, so the
+  component depended on itself and a circular dependency was reported. That is fixed in
+  `@asenajs/asena` — **which must be published first**, and the peer range has been bumped
+  accordingly.
+
+  ## Breaking: the metadata copy loops are gone, and they were destroying data
+
+  Both wrappers copied every metadata key off the target onto themselves. `getMetadataKeys` walks
+  the prototype chain while `getMetadata` returns only the nearest value, so the loop flattened
+  inherited records onto the wrapper as _own_ properties — and it ran _after_ the wrapper had
+  written its own. Two concrete failures, neither visible to the existing tests because
+  `BaseRepository` declares no decorators of its own:
+
+  1. **`@Repository` destroyed its own `_db` injection** the moment the repository declared any
+     `@Inject` of its own. The wrapper's `DependencyKey` (`{ _db }`) was overwritten by the
+     target's, so `_db` was never injected and the first query threw _"Database connection not
+     initialized. Make sure @Repository decorator is applied properly"_ — a message pointing at the
+     decorator rather than at the cause.
+  2. **A decorated class extending another decorated class registered under its parent's name.** An
+     inherited `NameKey` was copied over the wrapper's own, so two `@Database` services both
+     registered as the first one's name; the container promoted the entry to an array, and
+     `TransactionPostProcessor` took `registry[0]` — committing transactions against the wrong
+     database, silently. `@Transaction({ database: 'X' })` for the shadowed name threw at boot.
+
+  Nothing needs copying now: the wrapper extends the target, so everything is reachable through
+  the prototype chain and every reader walks it.
+
+  ## `@Transaction` on a base class now runs inside a transaction
+
+  `TransactionPostProcessor` read the transactional-method map with own-metadata off the registered
+  class, and the map only reached the wrapper through the copy loop above — which is nearest-wins.
+  So a base class's `@Transaction` methods worked right up until the concrete class declared one of
+  its own, at which point the base's map was shadowed and its methods quietly ran with autocommit.
+  Each write committed on its own, a mid-method failure left partial rows, and the method returned
+  normally. The map is now merged across the prototype chain.
+
+  `@Database`'s type parameter is now constrained to `AsenaDatabaseService`. Decorating a class
+  that does not extend it used to work by accident, because the wrapper supplied the service
+  surface; it now fails to compile rather than at the first request.
+
+  Requires `@asenajs/asena` 0.9.0 or later.
+
 ## 1.2.0
 
 ### Minor Changes

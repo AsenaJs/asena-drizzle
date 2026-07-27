@@ -2,7 +2,6 @@ import 'reflect-metadata';
 import { Service } from '@asenajs/asena/decorators';
 import { Inject } from '@asenajs/asena/decorators/ioc';
 import { BaseRepository, type TableWithId } from '../Repository';
-import { defineMetadata, getMetadata, getMetadataKeys } from 'reflect-metadata/no-conflict';
 
 /**
  * Options for the @Repository decorator
@@ -116,10 +115,12 @@ export interface RepositoryDecoratorOptions {
  */
 export function Repository(options: RepositoryDecoratorOptions) {
   return function <T extends new () => BaseRepository<any>>(target: T): T {
-    // Create a new class that extends BaseRepository directly instead of target
-    // This prevents the original repository class from being added to the dependency chain
+    // Extend the decorated class itself rather than BaseRepository. Extending
+    // BaseRepository discarded the target's prototype chain, so anything the
+    // repository inherited from an intermediate base class - methods, getters,
+    // statics - was silently dropped.
     @Service(options.name || target.name)
-    class RepositoryServiceClass extends BaseRepository<any> {
+    class RepositoryServiceClass extends (target as unknown as typeof BaseRepository<any>) {
       public constructor() {
         super();
         this.table = options.table; // Set the table schema
@@ -140,36 +141,17 @@ export function Repository(options: RepositoryDecoratorOptions) {
     // the active tx and hit the pool).
     Inject(databaseServiceName, (service: any) => service.connection)(RepositoryServiceClass.prototype, '_db');
 
-    // Copy only the custom methods from target prototype (user's repository methods)
-    Object.getOwnPropertyNames(target.prototype).forEach((name) => {
-      if (name !== 'constructor') {
-        const descriptor = Object.getOwnPropertyDescriptor(target.prototype, name);
-
-        if (descriptor) {
-          Object.defineProperty(RepositoryServiceClass.prototype, name, descriptor);
-        }
-      }
-    });
-
-    // Copy static methods and properties from target
-    Object.getOwnPropertyNames(target).forEach((name) => {
-      if (name !== 'prototype' && name !== 'name' && name !== 'length') {
-        const descriptor = Object.getOwnPropertyDescriptor(target, name);
-
-        if (descriptor) {
-          Object.defineProperty(RepositoryServiceClass, name, descriptor);
-        }
-      }
-    });
-
-    // Copy metadata from target
-    const metadata = getMetadataKeys(target);
-
-    metadata.forEach((key) => {
-      const value = getMetadata(key, target);
-
-      defineMetadata(key, value, RepositoryServiceClass);
-    });
+    // No member or metadata copying. The wrapper `extends target`, so every method, getter,
+    // static and metadata record on the target - and on anything the target itself extends - is
+    // already reachable through the prototype chain, and every reader that matters walks it.
+    //
+    // The copy loops were not merely redundant, they were destructive. `getMetadataKeys` walks
+    // the chain while `getMetadata` returns only the nearest value, so the metadata loop
+    // flattened inherited records onto the wrapper as own properties. Two concrete failures:
+    // it overwrote the DependencyKey written just above (dropping the `_db` injection the
+    // moment the repository declared any @Inject of its own), and it copied an inherited
+    // NameKey over the wrapper's own, so a decorated class extending another decorated class
+    // registered under its parent's name.
 
     // Fix: Override the class name to match the original target class
     // This ensures the exported class name matches what CLI expects during build
