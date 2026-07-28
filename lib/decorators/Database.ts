@@ -2,7 +2,6 @@ import 'reflect-metadata';
 import type { DatabaseOptions } from '../types';
 import { AsenaDatabaseService } from '../DatabaseService';
 import { Service } from '@asenajs/asena/decorators';
-import { defineMetadata, getMetadata, getMetadataKeys } from 'reflect-metadata/no-conflict';
 
 /**
  * Options for the @Database decorator
@@ -83,11 +82,17 @@ export interface DatabaseDecoratorOptions extends DatabaseOptions {
  * @returns {ClassDecorator} Class decorator function
  */
 export function Database(options: DatabaseDecoratorOptions) {
-  return function <T extends new (...args: any[]) => any>(target: T) {
-    // Create a new class that extends AsenaDatabaseService directly
-    // without trying to extend the target class (which causes circular dependency)
+  return function <T extends new (...args: any[]) => AsenaDatabaseService>(target: T) {
+    // Extend the decorated class itself. Extending AsenaDatabaseService discarded the
+    // target's prototype chain, so anything the service inherited from an intermediate
+    // base class was silently dropped.
+    //
+    // This used to self-cycle in the container: the wrapper is registered under the
+    // target's own name, and IocEngine treated the parent name as a dependency. That is
+    // fixed in @asenajs/asena, which now skips a parent resolving to the component's own
+    // name - hence the peer bump.
     @Service(options.name || target.name)
-    class DatabaseServiceClass extends AsenaDatabaseService {
+    class DatabaseServiceClass extends (target as unknown as typeof AsenaDatabaseService) {
       public constructor() {
         // Call super without parameters for AsenaJS property injection
         super();
@@ -101,36 +106,14 @@ export function Database(options: DatabaseDecoratorOptions) {
       }
     }
 
-    // Copy only the methods from target prototype, not the constructor
-    Object.getOwnPropertyNames(target.prototype).forEach((name) => {
-      if (name !== 'constructor') {
-        const descriptor = Object.getOwnPropertyDescriptor(target.prototype, name);
-
-        if (descriptor) {
-          Object.defineProperty(DatabaseServiceClass.prototype, name, descriptor);
-        }
-      }
-    });
-
-    // Copy static methods and properties
-    Object.getOwnPropertyNames(target).forEach((name) => {
-      if (name !== 'prototype' && name !== 'name' && name !== 'length') {
-        const descriptor = Object.getOwnPropertyDescriptor(target, name);
-
-        if (descriptor) {
-          Object.defineProperty(DatabaseServiceClass, name, descriptor);
-        }
-      }
-    });
-
-    // Copy metadata
-    const metadata = getMetadataKeys(target);
-
-    metadata.forEach((key) => {
-      const value = getMetadata(key, target);
-
-      defineMetadata(key, value, DatabaseServiceClass);
-    });
+    // No member or metadata copying - the wrapper `extends target`, so everything on the target
+    // and its own ancestors is reachable through the prototype chain, and every reader walks it.
+    //
+    // The metadata loop in particular was destructive: `getMetadataKeys` walks the chain while
+    // `getMetadata` returns only the nearest value, so it flattened inherited records onto the
+    // wrapper as own properties. A @Database extending another @Database therefore inherited its
+    // parent's NameKey and registered under the parent's name - the container promoted the entry
+    // to an array and transactions silently committed against the wrong database.
 
     // Fix: Override the class name to match the original target class
     // This ensures the exported class name matches what CLI expects during build

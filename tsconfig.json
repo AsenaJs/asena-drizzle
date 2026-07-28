@@ -28,6 +28,7 @@
     "noPropertyAccessFromIndexSignature": true
   },
   "exclude": [
+    "scripts",
     "node_modules",
     "test/**/*.ts",
     "test/utils/*.ts",
