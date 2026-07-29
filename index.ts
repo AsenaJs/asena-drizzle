@@ -7,7 +7,7 @@ export { Database, Repository, Transaction, Drizzle } from './lib/decorators';
 export type { DatabaseDecoratorOptions, RepositoryDecoratorOptions } from './lib/decorators';
 
 // Types
-export type { DatabaseConfig, DrizzleConfig, DatabaseType, DatabaseOptions } from './lib/types';
+export type { DatabaseConfig, DatabasePoolConfig, DrizzleConfig, DatabaseType, DatabaseOptions } from './lib/types';
 
 // Transaction subsystem
 export {

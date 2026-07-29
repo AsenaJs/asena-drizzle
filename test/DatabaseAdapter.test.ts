@@ -8,11 +8,6 @@ class MockDatabaseAdapter extends DatabaseAdapter<any> {
     super(config);
   }
 
-  // Expose protected method for testing
-  public getConnectionString(): string {
-    return this.createConnectionString();
-  }
-
   // Manually set connection for testing
   public setConnection(connection: any): void {
     this._connection = connection;
@@ -29,76 +24,6 @@ class MockDatabaseAdapter extends DatabaseAdapter<any> {
 }
 
 describe('DatabaseAdapter', () => {
-  describe('createConnectionString', () => {
-    it('should create PostgreSQL connection string with basic config', () => {
-      const adapter = new MockDatabaseAdapter({
-        host: 'localhost',
-        port: 5432,
-        database: 'testdb',
-        user: 'testuser',
-        password: 'testpass',
-      });
-
-      const connStr = adapter.getConnectionString();
-      expect(connStr).toBe('postgresql://testuser:testpass@localhost:5432/testdb');
-    });
-
-    it('should create connection string with SSL enabled', () => {
-      const adapter = new MockDatabaseAdapter({
-        host: 'db.example.com',
-        port: 5432,
-        database: 'proddb',
-        user: 'admin',
-        password: 'secret123',
-        ssl: true,
-      });
-
-      const connStr = adapter.getConnectionString();
-      expect(connStr).toBe('postgresql://admin:secret123@db.example.com:5432/proddb?ssl=true');
-    });
-
-    it('should use provided connectionString if available', () => {
-      const customConnStr = 'postgresql://custom:string@host:1234/db?param=value';
-      const adapter = new MockDatabaseAdapter({
-        host: 'ignored',
-        port: 9999,
-        database: 'ignored',
-        user: 'ignored',
-        password: 'ignored',
-        connectionString: customConnStr,
-      });
-
-      const connStr = adapter.getConnectionString();
-      expect(connStr).toBe(customConnStr);
-    });
-
-    it('should handle different ports correctly', () => {
-      const adapter = new MockDatabaseAdapter({
-        host: '192.168.1.100',
-        port: 3306,
-        database: 'myapp',
-        user: 'root',
-        password: 'pass',
-      });
-
-      const connStr = adapter.getConnectionString();
-      expect(connStr).toContain(':3306/');
-    });
-
-    it('should handle special characters in password', () => {
-      const adapter = new MockDatabaseAdapter({
-        host: 'localhost',
-        port: 5432,
-        database: 'testdb',
-        user: 'user',
-        password: 'p@ss:w0rd!',
-      });
-
-      const connStr = adapter.getConnectionString();
-      expect(connStr).toContain('p@ss:w0rd!');
-    });
-  });
-
   describe('connection getter', () => {
     let adapter: MockDatabaseAdapter;
 

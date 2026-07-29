@@ -145,7 +145,7 @@ class InheritingDatabase extends LoggingDatabaseBase {
 }
 
 describe('@Database inheritance', () => {
-  // Booting this one would open a real connection in @PostConstruct, so the contract is
+  // Booting this one would open a real connection in @OnStart, so the contract is
   // asserted on the returned class instead.
   test('keeps methods declared on a base class', () => {
     const instance: any = new (InheritingDatabase as any)();

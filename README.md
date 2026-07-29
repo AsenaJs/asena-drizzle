@@ -1,6 +1,6 @@
 # @asenajs/asena-drizzle
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/AsenaJs/asena-drizzle#readme)
+[![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](https://github.com/AsenaJs/asena-drizzle#readme)
 [![Bun Version](https://img.shields.io/badge/Bun-1.3.12%2B-blueviolet)](https://bun.sh)
 
 Drizzle ORM utilities for AsenaJS - A powerful and type-safe database integration package that provides generic Database services and Repository patterns.
@@ -18,7 +18,7 @@ Drizzle ORM utilities for AsenaJS - A powerful and type-safe database integratio
 ## Requirements
 
 - [Bun](https://bun.sh) v1.3.12 or higher
-- [@asenajs/asena](https://github.com/AsenaJs/Asena) v0.9.0 or higher
+- [@asenajs/asena](https://github.com/AsenaJs/Asena) v0.10.0 or higher
 - [drizzle-orm](https://orm.drizzle.team) v0.44 or higher
 
 ## Installation
@@ -185,6 +185,52 @@ Inside an active `@Transaction` scope this opens a savepoint; outside, it starts
 - `bun-sql` - BunSQL using Bun's SQL interface
 - `sqlite` - SQLite (coming soon)
 
+## Connection Pool Configuration
+
+Pool size is a property of the process, not of the schema - an API serving concurrent requests and a worker draining one
+job at a time can ship from the same image and still want different numbers. `config.pool` describes it once, in
+driver-agnostic terms, and each adapter translates it into its own driver's vocabulary. Durations are always
+milliseconds; the adapter converts where the driver counts in seconds.
+
+```typescript
+@Database({
+  type: 'postgresql',
+  config: {
+    host: 'localhost',
+    port: 5432,
+    database: 'myapp',
+    user: 'postgres',
+    password: 'password',
+    pool: {
+      max: Number(process.env.DB_POOL_MAX ?? 20),
+      idleTimeoutMs: 30000,
+      connectTimeoutMs: 2000,
+      maxLifetimeMs: 1800000,
+    },
+    // Anything not modelled above, passed straight to the driver (and applied last)
+    extra: { application_name: 'billing-api' },
+  },
+})
+export class MyDatabase extends AsenaDatabaseService {}
+```
+
+| `pool` field       | `postgresql` (pg)         | `mysql` (mysql2)  | `bun-sql` (Bun `SQL`)       |
+| ------------------ | ------------------------- | ----------------- | --------------------------- |
+| `max`              | `max` (default 20)        | `connectionLimit` (default 10) | `max` (Bun default 10) |
+| `idleTimeoutMs`    | `idleTimeoutMillis` (default 30000) | `idleTimeout` | `idleTimeout` (seconds)     |
+| `connectTimeoutMs` | `connectionTimeoutMillis` (default 2000) | `connectTimeout` | `connectionTimeout` (seconds) |
+| `maxLifetimeMs`    | `maxLifetimeSeconds`      | not supported by mysql2 | `maxLifetime` (seconds) |
+
+Every field is optional: leaving one out keeps the default shown above, so adding a `pool` block never changes anything
+you did not ask it to change.
+
+## Lifecycle
+
+The database connects in an `@OnStart` hook - after every component is constructed, before the HTTP socket binds - and
+releases the pool in an `@OnStop` hook when `server.stop()` runs. Nothing else needs to call `disconnect()`; this
+matters most in test suites, where each file boots its own container and leaked pools accumulate until the database
+refuses new clients.
+
 ## Repository Methods
 
 The `BaseRepository` provides the following built-in methods:
@@ -242,16 +288,30 @@ export class EventRepository extends BaseRepository<typeof events> {}
 
 ### Connection String Usage
 
+`connectionString` replaces `host`, `port`, `database`, `user` and `password` entirely - leave them out rather than
+blanking them. Every adapter honours it, each under its own driver's key (`connectionString` for `postgresql`, `uri` for
+`mysql`, `url` for `bun-sql`), and none of the five discrete fields is handed to the driver when it is set.
+
 ```typescript
 @Database({
   type: 'postgresql',
   config: {
     connectionString: process.env.DATABASE_URL,
-    host: '', port: 0, database: '', user: '', password: ''
-  }
+    pool: { max: 50 },
+  },
 })
 export class DatabaseFromURL extends AsenaDatabaseService {}
 ```
+
+Mixing the two is not a merge on any of the three drivers, which is why the adapters pick one: pg lets the URL win and
+fills whatever it omits from its own defaults - never from your `port` - while mysql2 does the opposite and ignores the
+URL wherever a discrete field is set. Emitting both would mean a different winner per database type.
+
+`pool`, `ssl` and `extra` are unaffected and still apply. An `ssl` or `sslmode` in the query string wins for
+`postgresql` - pg parses the URL over the rest of the options, so `config.ssl` only decides the cases the URL says
+nothing about. For `mysql` the priority is the other way round: an explicit `ssl: true` beats the URI's own parameter.
+One asymmetry worth knowing for the same reason: for `postgresql`, `extra: { host: 'x' }` cannot override a connection
+string either; for `mysql` it can.
 
 ## License
 

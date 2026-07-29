@@ -1,5 +1,70 @@
 # @asenajs/asena-drizzle
 
+## 3.0.0
+
+### Major Changes
+
+- The pool is released on shutdown, and its size is finally configurable
+
+  Nothing in the framework ever called `AsenaDatabaseService.disconnect()`. A downstream team ran
+  integration tests where every file builds a container in `beforeAll` and calls `app.stop()` in
+  `afterAll`; the pools accumulated for the whole run until Postgres answered
+  `sorry, too many clients already`. The failure landed in whichever file happened to run last, so
+  it read as _that_ file being broken, and it moved when the file order changed. `@OnStop` now
+  closes the adapter on `server.stop()`.
+
+  `@PostConstruct` on `onStart()` becomes `@OnStart` — the same metadata key, renamed with core.
+
+  **Pool sizing.** The same team set `max` in the `@Database` config and saw no effect: `max` was
+  not a field on `DatabaseConfig` at all, and no adapter spread the user's config — each wrote an
+  explicit key literal, so anything outside it was unreachable. `DatabaseConfig` now takes:
+
+  ```ts
+  pool?: { max?: number; idleTimeoutMs?: number; connectTimeoutMs?: number; maxLifetimeMs?: number }
+  extra?: Record<string, unknown>   // spread last into the driver options
+  ```
+
+  mapped per driver to that driver's own option names. The previously hardcoded values became the
+  defaults, so configuring nothing behaves exactly as before. `bun-sql` additionally now honours
+  `ssl`, which it had been dropping alongside `connectionString` and the pool size.
+
+  **Breaking:** requires `@asenajs/asena@^0.10.0`. A 0.9.x application cannot use this version.
+
+- `connectionString` is honoured by every adapter, and `createConnectionString()` is gone
+
+  `config.connectionString` was accepted by `DatabaseConfig` and documented as supported, but only
+  `bun-sql` ever read it. The `postgresql` and `mysql` adapters built their driver options from the
+  five discrete fields alone, so a URL-configured application connected somewhere else entirely:
+  pg fell through to `PGHOST`/`PGUSER` and the OS username, mysql2 to `localhost:3306`. The README's
+  own example (`connectionString` alongside `host: '', port: 0, database: '', user: '', password: ''`)
+  could not connect at all.
+
+  Each adapter now emits the connection string under its own driver's key (`connectionString` for
+  `postgresql`, `uri` for `mysql`, `url` for `bun-sql`) and emits **none** of `host`, `port`,
+  `database`, `user`, `password` when it is set. `ssl`, `pool` and `extra` are unaffected and still
+  apply.
+
+  The five fields are not merged into the URL because no merge exists to implement, and the drivers
+  disagree on which side wins: pg parses the URL over the whole option object and fills whatever the
+  URL omits from its own defaults (`{ port: 5555, connectionString: 'postgres://u:p@h/db' }` resolves
+  to 5432, never 5555), while mysql2 keeps any truthy discrete option and ignores the URI. Emitting
+  both would have meant a different winner per database type.
+
+  ## Breaking: the five discrete fields are now optional
+
+  `host`, `port`, `database`, `user` and `password` on `DatabaseConfig` are optional. A
+  connection-string config no longer has to blank them out to satisfy the type, and pg's "configure
+  it through `PGHOST`/`PGUSER`" case is expressible for the first time. Existing configs keep
+  compiling; anything reading `DatabaseConfig` and assuming the fields are present will not.
+
+  ## Breaking: `createConnectionString()` is removed
+
+  The `protected createConnectionString()` on `DatabaseAdapter`, `PostgreSQLAdapter` and
+  `MySQLAdapter` is gone. It had no production caller left - every adapter builds its driver options
+  directly - and its synthesis branch was broken anyway: it never URL-encoded credentials, so a
+  password like `p@ss:w0rd!` produced a corrupt URL. `DatabaseAdapter` is exported from the package
+  root, so a subclass that called it will no longer compile.
+
 ## 2.0.0
 
 ### Major Changes

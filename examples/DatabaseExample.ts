@@ -39,11 +39,6 @@ export class PostgresDatabase extends AsenaDatabaseService {}
   type: 'postgresql',
   config: {
     connectionString: process.env['DATABASE_URL'] || 'postgresql://user:pass@localhost:5432/db',
-    host: '', // Will be ignored when connectionString is provided
-    port: 0,
-    database: '',
-    user: '',
-    password: '',
   },
 })
 export class PostgresDatabaseFromURL extends AsenaDatabaseService {}

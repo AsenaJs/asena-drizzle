@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'bun:test';
+import { Client } from 'pg';
 import { PostgreSQLAdapter } from '../lib/adapters/PostgreSQLAdapter';
 import type { DatabaseConfig } from '../lib/types';
 
@@ -62,76 +63,103 @@ describe('PostgreSQLAdapter', () => {
     });
   });
 
-  describe('connection string creation', () => {
-    it('should create PostgreSQL connection string with basic config', () => {
-      const adapter = new PostgreSQLAdapter({
-        host: 'localhost',
-        port: 5432,
-        database: 'mydb',
-        user: 'postgres',
-        password: 'secret',
-      });
+  // `connectionString` was accepted by the config and then dropped on the floor here: the
+  // options literal only ever carried the five discrete fields, so a URL-configured application
+  // silently fell back to pg's PG* environment defaults. The object-level assertions below are
+  // not enough on their own - pg ignores unknown keys without complaining - so each one is
+  // paired with what pg's own Client made of the options. A Client normalises its parameters in
+  // the constructor and opens nothing, so there is no socket and nothing to clean up.
+  describe('connection string', () => {
+    const buildOptions = (config: DatabaseConfig) => (new PostgreSQLAdapter(config) as any).buildDriverOptions();
 
-      // Access protected method through subclass
-      const connStr = (adapter as any).createConnectionString();
-      expect(connStr).toBe('postgresql://postgres:secret@localhost:5432/mydb');
+    // `?ssl=true` rather than `?sslmode=require`: pg-connection-string prints a multi-line
+    // deprecation warning for the sslmode spellings and would spray it across the suite output.
+    const url = 'postgresql://urluser:urlpass@url.example.com:5433/urldb';
+
+    const driverView = (config: DatabaseConfig) => new Client(buildOptions(config)) as any;
+
+    it('should emit the connection string under the key pg reads', () => {
+      const options = buildOptions({ ...validConfig, connectionString: url });
+
+      expect(options.connectionString).toBe(url);
     });
 
-    it('should include SSL parameter when SSL is enabled', () => {
-      const adapter = new PostgreSQLAdapter({
-        host: 'secure.db.com',
-        port: 5432,
-        database: 'proddb',
-        user: 'admin',
-        password: 'pass123',
-        ssl: true,
-      });
+    it('should omit the discrete fields entirely when a connection string is set', () => {
+      const options = buildOptions({ ...validConfig, connectionString: url });
 
-      const connStr = (adapter as any).createConnectionString();
-      expect(connStr).toContain('?ssl=true');
-      expect(connStr).toBe('postgresql://admin:pass123@secure.db.com:5432/proddb?ssl=true');
+      // Absent, not `undefined`: pg cannot merge the two - it re-parses the URL over the whole
+      // option object and fills what the URL omits from its own defaults, never from these.
+      expect('host' in options).toBe(false);
+      expect('port' in options).toBe(false);
+      expect('database' in options).toBe(false);
+      expect('user' in options).toBe(false);
+      expect('password' in options).toBe(false);
     });
 
-    it('should use provided connectionString if available', () => {
-      const customConnStr = 'postgresql://custom:string@host:1234/db?param=value';
-      const adapter = new PostgreSQLAdapter({
-        host: 'ignored',
-        port: 9999,
-        database: 'ignored',
-        user: 'ignored',
-        password: 'ignored',
-        connectionString: customConnStr,
-      });
+    it('should accept a config that carries nothing but a connection string', () => {
+      // The five fields are optional, so this compiles - the README used to have to blank them
+      // out to satisfy the type, which is the config that could not connect.
+      const config: DatabaseConfig = { connectionString: url };
+      const client = driverView(config);
 
-      const connStr = (adapter as any).createConnectionString();
-      expect(connStr).toBe(customConnStr);
+      expect(client.host).toBe('url.example.com');
+      expect(client.database).toBe('urldb');
     });
 
-    it('should handle different ports correctly', () => {
-      const adapter = new PostgreSQLAdapter({
-        host: '192.168.1.100',
-        port: 5433,
-        database: 'customport',
-        user: 'user',
-        password: 'pass',
-      });
+    it('should let pg resolve the connection from the URL rather than the discrete fields', () => {
+      const client = driverView({ ...validConfig, connectionString: url });
 
-      const connStr = (adapter as any).createConnectionString();
-      expect(connStr).toContain(':5433/');
+      expect(client.host).toBe('url.example.com');
+      expect(client.port).toBe(5433);
+      expect(client.user).toBe('urluser');
+      expect(client.database).toBe('urldb');
     });
 
-    it('should handle special characters in credentials', () => {
-      const adapter = new PostgreSQLAdapter({
-        host: 'localhost',
-        port: 5432,
-        database: 'testdb',
-        user: 'user@domain',
-        password: 'p@ss:w0rd!',
+    it('should emit the discrete fields and no connection string when none is configured', () => {
+      const options = buildOptions(validConfig);
+
+      expect(options.host).toBe('localhost');
+      expect(options.port).toBe(5432);
+      expect(options.database).toBe('testdb');
+      expect(options.user).toBe('testuser');
+      expect(options.password).toBe('testpass');
+      expect('connectionString' in options).toBe(false);
+    });
+
+    it('should keep the pool settings alongside a connection string', () => {
+      const options = buildOptions({
+        ...validConfig,
+        connectionString: url,
+        pool: { max: 7, idleTimeoutMs: 5000 },
       });
 
-      const connStr = (adapter as any).createConnectionString();
-      expect(connStr).toContain('user@domain');
-      expect(connStr).toContain('p@ss:w0rd!');
+      expect(options.connectionString).toBe(url);
+      expect(options.max).toBe(7);
+      expect(options.idleTimeoutMillis).toBe(5000);
+    });
+
+    it('should still spread extra last alongside a connection string', () => {
+      const options = buildOptions({
+        ...validConfig,
+        connectionString: url,
+        pool: { max: 7 },
+        extra: { max: 99, application_name: 'billing-api' },
+      });
+
+      expect(options.max).toBe(99);
+      expect(options.application_name).toBe('billing-api');
+    });
+
+    it('should let an ssl parameter in the URL enable TLS over the emitted ssl:false', () => {
+      const client = driverView({ ...validConfig, connectionString: `${url}?ssl=true` });
+
+      expect(client.ssl).toBe(true);
+    });
+
+    it('should apply config.ssl when the URL says nothing about it', () => {
+      const client = driverView({ ...validConfig, connectionString: url, ssl: true });
+
+      expect(client.ssl).toEqual({ rejectUnauthorized: false });
     });
   });
 
@@ -230,11 +258,65 @@ describe('PostgreSQLAdapter', () => {
   });
 
   describe('connection pooling', () => {
+    const buildOptions = (config: DatabaseConfig) => (new PostgreSQLAdapter(config) as any).buildDriverOptions();
+
     it('should create adapter with pool configuration', () => {
       // PostgreSQLAdapter uses connection pooling by default
       // Pool config: max: 20, idleTimeout: 30s, connectionTimeout: 2s
       const adapter = new PostgreSQLAdapter(validConfig);
       expect(adapter).toBeDefined();
+    });
+
+    it('should keep the previous hardcoded values as defaults', () => {
+      const options = buildOptions(validConfig);
+
+      expect(options.max).toBe(20);
+      expect(options.idleTimeoutMillis).toBe(30000);
+      expect(options.connectionTimeoutMillis).toBe(2000);
+    });
+
+    it('should hand the configured pool settings to pg', () => {
+      const options = buildOptions({
+        ...validConfig,
+        pool: { max: 50, idleTimeoutMs: 5000, connectTimeoutMs: 1000 },
+      });
+
+      expect(options.max).toBe(50);
+      expect(options.idleTimeoutMillis).toBe(5000);
+      expect(options.connectionTimeoutMillis).toBe(1000);
+    });
+
+    it('should translate the connection lifetime into the seconds pg expects', () => {
+      const options = buildOptions({ ...validConfig, pool: { maxLifetimeMs: 900000 } });
+
+      expect(options.maxLifetimeSeconds).toBe(900);
+    });
+
+    it('should leave the lifetime unset when it is not configured', () => {
+      expect('maxLifetimeSeconds' in buildOptions(validConfig)).toBe(false);
+    });
+
+    it('should carry the connection fields alongside the pool settings', () => {
+      const options = buildOptions({ ...validConfig, ssl: true, pool: { max: 3 } });
+
+      expect(options.host).toBe('localhost');
+      expect(options.port).toBe(5432);
+      expect(options.database).toBe('testdb');
+      expect(options.user).toBe('testuser');
+      expect(options.password).toBe('testpass');
+      expect(options.ssl).toEqual({ rejectUnauthorized: false });
+      expect(options.max).toBe(3);
+    });
+
+    it('should spread extra options and let them win', () => {
+      const options = buildOptions({
+        ...validConfig,
+        pool: { max: 5 },
+        extra: { max: 99, application_name: 'billing-api' },
+      });
+
+      expect(options.max).toBe(99);
+      expect(options.application_name).toBe('billing-api');
     });
 
     it('should handle multiple adapter instances', () => {

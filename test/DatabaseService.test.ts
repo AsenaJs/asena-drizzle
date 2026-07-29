@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test';
+import { AsenaServerFactory } from '@asenajs/asena';
+import { Service } from '@asenajs/asena/decorators';
+import { ComponentConstants } from '@asenajs/asena/ioc/constants';
+import { getOwnTypedMetadata } from '@asenajs/asena/utils';
 import { AsenaDatabaseService } from '../lib/DatabaseService';
+import { Database } from '../lib/decorators/Database';
 import type { DatabaseConfig, DatabaseOptions } from '../lib/types';
 import { BunSQLAdapter, MySQLAdapter, PostgreSQLAdapter } from '../lib/adapters';
 
@@ -16,6 +21,10 @@ class TestDatabaseService extends AsenaDatabaseService<any> {
   // Expose protected methods for testing
   public async callOnStart() {
     return this.onStart();
+  }
+
+  public async callOnStop() {
+    return this.onStop();
   }
 
   public setOptions(options: DatabaseOptions) {
@@ -410,5 +419,157 @@ describe('AsenaDatabaseService', () => {
 
       expect(service.getAdapter()).not.toBeNull();
     });
+  });
+
+  // disconnect() existed from the start and nothing ever called it. A process that exits right
+  // after shutdown never notices; a test run where every file boots its own container does -
+  // the pools pile up until the server refuses new clients, and the failure lands in whichever
+  // file happened to run last rather than in the one that leaked.
+  describe('onStop lifecycle', () => {
+    it('should be registered as an @OnStop hook', () => {
+      // The metadata, not just the method: an undecorated onStop() is a method nobody calls.
+      const stopHooks = getOwnTypedMetadata<string[]>(ComponentConstants.OnStopKey, AsenaDatabaseService);
+
+      expect(stopHooks).toEqual(['onStop']);
+    });
+
+    it('should still register onStart under the start hook key', () => {
+      // @OnStart is the new name for @PostConstruct and writes the same metadata, so renaming
+      // the decorator must not change what the container collects.
+      const startHooks = getOwnTypedMetadata<string[]>(ComponentConstants.PostConstructKey, AsenaDatabaseService);
+
+      expect(startHooks).toEqual(['onStart']);
+    });
+
+    it('should release the adapter', async () => {
+      const mockAdapter = {
+        disconnect: mock(async () => {}),
+        connect: mock(async () => ({})),
+        testConnection: mock(async () => true),
+        connection: {},
+      };
+
+      service.setOptions({
+        type: 'bun-sql',
+        config: baseConfig,
+        // @ts-ignore
+        logger: mockLogger,
+      });
+      // @ts-ignore
+      service['adapter'] = mockAdapter as any;
+
+      await service.callOnStop();
+
+      expect(mockAdapter.disconnect).toHaveBeenCalledTimes(1);
+      expect(service.getAdapter()).toBeNull();
+      expect(mockLogger.info).toHaveBeenCalled();
+    });
+
+    it('should not throw when the service never connected', async () => {
+      // A boot that failed before onStart, or a component the container built but never
+      // started. The framework logs and skips a throwing hook, but there is nothing to report.
+      await expect(service.callOnStop()).resolves.toBeUndefined();
+    });
+  });
+});
+
+// The end-to-end half of the same story: the container has to actually call the hook. The unit
+// tests above would stay green if @OnStop were never collected for a subclass, which is the
+// shape every real database service has.
+describe('AsenaDatabaseService shutdown integration', () => {
+  const silentLogger: any = { info: () => {}, warn: () => {}, error: () => {}, profile: () => {} };
+
+  @Service('ShutdownProbeDatabase')
+  class ShutdownProbeDatabase extends AsenaDatabaseService<any> {
+    public disconnectCalls = 0;
+
+    // Stands in for a real pool - the assertion is about the release, not about dialling out.
+    protected async onStart() {
+      this.options = {
+        type: 'bun-sql',
+        config: { host: 'localhost', port: 5432, database: 'probe', user: 'probe', password: 'probe' },
+        logger: silentLogger,
+      };
+      this.adapter = {
+        connect: async () => ({}),
+        disconnect: async () => {},
+        testConnection: async () => true,
+        connection: {},
+      } as any;
+    }
+
+    public async disconnect(): Promise<void> {
+      this.disconnectCalls++;
+
+      await super.disconnect();
+    }
+  }
+
+  // The shape every application actually has: @Database returns a wrapper that extends the
+  // decorated class, so the hooks live two levels up the prototype chain from the registered
+  // component. The wrapper has lost inherited metadata before (see WrapperMetadata.test.ts).
+  @Database({
+    type: 'bun-sql',
+    config: { host: 'localhost', port: 5432, database: 'probe', user: 'probe', password: 'probe' },
+    name: 'DecoratedProbeDatabase',
+    logger: silentLogger,
+  })
+  class DecoratedProbeDatabase extends AsenaDatabaseService<any> {
+    public disconnectCalls = 0;
+
+    protected async onStart() {
+      // The wrapper's constructor already set the options; only the dial-out is stubbed.
+      this.adapter = {
+        connect: async () => ({}),
+        disconnect: async () => {},
+        testConnection: async () => true,
+        connection: {},
+      } as any;
+    }
+
+    public async disconnect(): Promise<void> {
+      this.disconnectCalls++;
+
+      await super.disconnect();
+    }
+  }
+
+  it('should disconnect the database when the server stops', async () => {
+    const server: any = await AsenaServerFactory.create({
+      logger: silentLogger,
+      components: [ShutdownProbeDatabase],
+      headless: true,
+    });
+
+    await server.start();
+
+    const probe: ShutdownProbeDatabase = await server.coreContainer.container.resolve('ShutdownProbeDatabase');
+
+    expect(probe.disconnectCalls).toBe(0);
+    expect((probe as any).adapter).not.toBeNull();
+
+    await server.stop();
+
+    expect(probe.disconnectCalls).toBe(1);
+    expect((probe as any).adapter).toBeNull();
+  });
+
+  it('should disconnect a @Database decorated service when the server stops', async () => {
+    const server: any = await AsenaServerFactory.create({
+      logger: silentLogger,
+      components: [DecoratedProbeDatabase],
+      headless: true,
+    });
+
+    await server.start();
+
+    const probe: any = await server.coreContainer.container.resolve('DecoratedProbeDatabase');
+
+    expect(probe.adapter).not.toBeNull();
+
+    await server.stop();
+
+    expect(probe.disconnectCalls).toBe(1);
+    expect(probe.adapter).toBeNull();
   });
 });

@@ -27,19 +27,6 @@ export abstract class DatabaseAdapter<T> {
     }
   }
 
-  protected createConnectionString(): string {
-    const { host, port, database, user, password, ssl } = this.config;
-
-    if (this.config.connectionString) {
-      return this.config.connectionString;
-    }
-
-    // Default to PostgreSQL format, override in specific adapters
-    const sslParam = ssl ? '?ssl=true' : '';
-
-    return `postgresql://${user}:${password}@${host}:${port}/${database}${sslParam}`;
-  }
-
   public abstract connect(): Promise<T>;
 
   public abstract disconnect(): Promise<void>;

@@ -10,7 +10,7 @@ import { TRANSACTION_METADATA_KEY, type TransactionOptions } from '../transactio
  *
  * The decorator itself only records metadata — it does not change the method's
  * descriptor. This keeps `this` binding intact and lets the PostProcessor wrap
- * the fully constructed instance (after DI + PostConstruct).
+ * the fully constructed instance (after DI + @OnStart).
  *
  * @example
  * ```typescript

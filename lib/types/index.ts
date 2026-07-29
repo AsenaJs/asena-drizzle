@@ -1,1 +1,7 @@
-export type { DatabaseConfig, DrizzleConfig, DatabaseType, DatabaseOptions } from './DatabaseConfig';
+export type {
+  DatabaseConfig,
+  DatabasePoolConfig,
+  DrizzleConfig,
+  DatabaseType,
+  DatabaseOptions,
+} from './DatabaseConfig';

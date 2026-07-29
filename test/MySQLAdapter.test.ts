@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'bun:test';
+import mysql from 'mysql2/promise';
 import { MySQLAdapter } from '../lib/adapters/MySQLAdapter';
 import type { DatabaseConfig } from '../lib/types';
 
@@ -62,76 +63,100 @@ describe('MySQLAdapter', () => {
     });
   });
 
-  describe('connection string creation', () => {
-    it('should create MySQL connection string with basic config', () => {
-      const adapter = new MySQLAdapter({
-        host: 'localhost',
-        port: 3306,
-        database: 'mydb',
-        user: 'root',
-        password: 'secret',
-      });
+  // `connectionString` was accepted by the config and then dropped on the floor here, so a
+  // URL-configured application quietly connected to mysql2's localhost:3306 default instead.
+  // Asserting on the built object alone would not catch the two ways of getting this wrong -
+  // mysql2 ignores an unknown `connectionString` key with only a warning, and it prefers any
+  // truthy discrete option over the URI - so each case is paired with the config mysql2 itself
+  // resolved. createPool opens no connection until one is requested; `end()` closes the empty
+  // pool.
+  describe('connection string', () => {
+    const buildOptions = (config: DatabaseConfig) => (new MySQLAdapter(config) as any).buildDriverOptions();
 
-      // Access protected method through subclass
-      const connStr = (adapter as any).createConnectionString();
-      expect(connStr).toBe('mysql://root:secret@localhost:3306/mydb');
+    const url = 'mysql://urluser:urlpass@url.example.com:3307/urldb';
+
+    // Takes a config rather than options because createPool *mutates* the object it is given,
+    // writing the URI's host/port/user/password/database back onto it. Reusing that object for
+    // an absence assertion would prove nothing - so every caller here gets a fresh build.
+    const driverView = async (config: DatabaseConfig) => {
+      const pool = mysql.createPool(buildOptions(config) as any);
+      const resolved = {
+        ...(pool as any).pool.config.connectionConfig,
+        connectionLimit: (pool as any).pool.config.connectionLimit,
+      };
+
+      await pool.end();
+
+      return resolved;
+    };
+
+    it('should emit the connection string under `uri`, the key mysql2 reads', () => {
+      const options = buildOptions({ ...validConfig, connectionString: url });
+
+      // Not `connectionString`: that name is not in mysql2's validOptions, so it is warned
+      // about and dropped, leaving the pool on localhost:3306.
+      expect(options.uri).toBe(url);
+      expect('connectionString' in options).toBe(false);
     });
 
-    it('should include SSL parameter when SSL is enabled', () => {
-      const adapter = new MySQLAdapter({
-        host: 'secure.mysql.com',
-        port: 3306,
-        database: 'proddb',
-        user: 'admin',
-        password: 'pass123',
-        ssl: true,
-      });
+    it('should omit the discrete fields entirely when a connection string is set', () => {
+      const options = buildOptions({ ...validConfig, connectionString: url });
 
-      const connStr = (adapter as any).createConnectionString();
-      expect(connStr).toContain('?ssl=true');
-      expect(connStr).toBe('mysql://admin:pass123@secure.mysql.com:3306/proddb?ssl=true');
+      expect('host' in options).toBe(false);
+      expect('port' in options).toBe(false);
+      expect('user' in options).toBe(false);
+      expect('password' in options).toBe(false);
+      expect('database' in options).toBe(false);
     });
 
-    it('should use provided connectionString if available', () => {
-      const customConnStr = 'mysql://custom:string@host:1234/db?param=value';
-      const adapter = new MySQLAdapter({
-        host: 'ignored',
-        port: 9999,
-        database: 'ignored',
-        user: 'ignored',
-        password: 'ignored',
-        connectionString: customConnStr,
-      });
+    it('should let mysql2 resolve the connection from the URI rather than the discrete fields', async () => {
+      // The decisive case: validConfig carries host 'localhost'. mysql2 keeps a truthy discrete
+      // option over the URI, so emitting both would resolve to localhost - indistinguishable
+      // from not honouring the connection string at all.
+      const resolved = await driverView({ ...validConfig, connectionString: url });
 
-      const connStr = (adapter as any).createConnectionString();
-      expect(connStr).toBe(customConnStr);
+      expect(resolved.host).toBe('url.example.com');
+      expect(resolved.port).toBe(3307);
+      expect(resolved.user).toBe('urluser');
+      expect(resolved.database).toBe('urldb');
     });
 
-    it('should handle different ports correctly', () => {
-      const adapter = new MySQLAdapter({
-        host: '192.168.1.100',
-        port: 3307,
-        database: 'customport',
-        user: 'user',
-        password: 'pass',
-      });
+    it('should emit the discrete fields and no uri when no connection string is configured', () => {
+      const options = buildOptions(validConfig);
 
-      const connStr = (adapter as any).createConnectionString();
-      expect(connStr).toContain(':3307/');
+      expect(options.host).toBe('localhost');
+      expect(options.port).toBe(3306);
+      expect(options.user).toBe('testuser');
+      expect(options.password).toBe('testpass');
+      expect(options.database).toBe('testdb');
+      expect('uri' in options).toBe(false);
     });
 
-    it('should handle special characters in credentials', () => {
-      const adapter = new MySQLAdapter({
-        host: 'localhost',
-        port: 3306,
-        database: 'testdb',
-        user: 'user@domain',
-        password: 'p@ss:w0rd!',
+    it('should keep the pool settings alongside a connection string', async () => {
+      const config: DatabaseConfig = {
+        ...validConfig,
+        connectionString: url,
+        pool: { max: 7, connectTimeoutMs: 4000 },
+      };
+
+      expect(buildOptions(config).connectionLimit).toBe(7);
+
+      const resolved = await driverView(config);
+
+      expect(resolved.connectionLimit).toBe(7);
+      expect(resolved.connectTimeout).toBe(4000);
+    });
+
+    it('should still spread extra last alongside a connection string', () => {
+      const options = buildOptions({
+        ...validConfig,
+        connectionString: url,
+        pool: { max: 7 },
+        extra: { connectionLimit: 99, waitForConnections: false },
       });
 
-      const connStr = (adapter as any).createConnectionString();
-      expect(connStr).toContain('user@domain');
-      expect(connStr).toContain('p@ss:w0rd!');
+      expect(options.connectionLimit).toBe(99);
+      expect(options.waitForConnections).toBe(false);
     });
   });
 
@@ -230,11 +255,70 @@ describe('MySQLAdapter', () => {
   });
 
   describe('connection pooling', () => {
+    const buildOptions = (config: DatabaseConfig) => (new MySQLAdapter(config) as any).buildDriverOptions();
+
     it('should create adapter with pool configuration', () => {
       // MySQLAdapter uses connection pooling by default
       // Pool config: connectionLimit: 10, queueLimit: 0
       const adapter = new MySQLAdapter(validConfig);
       expect(adapter).toBeDefined();
+    });
+
+    it('should keep the previous hardcoded values as defaults', () => {
+      const options = buildOptions(validConfig);
+
+      expect(options.connectionLimit).toBe(10);
+      expect(options.queueLimit).toBe(0);
+    });
+
+    it('should hand the configured pool size to mysql2 as connectionLimit', () => {
+      const options = buildOptions({ ...validConfig, pool: { max: 25 } });
+
+      expect(options.connectionLimit).toBe(25);
+    });
+
+    it('should pass the timeouts through in milliseconds', () => {
+      const options = buildOptions({ ...validConfig, pool: { idleTimeoutMs: 15000, connectTimeoutMs: 4000 } });
+
+      expect(options.idleTimeout).toBe(15000);
+      expect(options.connectTimeout).toBe(4000);
+    });
+
+    it('should leave the timeouts unset when they are not configured', () => {
+      const options = buildOptions(validConfig);
+
+      expect('idleTimeout' in options).toBe(false);
+      expect('connectTimeout' in options).toBe(false);
+    });
+
+    it('should ignore maxLifetimeMs, which mysql2 has no option for', () => {
+      const options = buildOptions({ ...validConfig, pool: { maxLifetimeMs: 900000 } });
+
+      expect('maxLifetime' in options).toBe(false);
+      expect('maxLifetimeSeconds' in options).toBe(false);
+    });
+
+    it('should carry the connection fields alongside the pool settings', () => {
+      const options = buildOptions({ ...validConfig, ssl: true, pool: { max: 3 } });
+
+      expect(options.host).toBe('localhost');
+      expect(options.port).toBe(3306);
+      expect(options.database).toBe('testdb');
+      expect(options.user).toBe('testuser');
+      expect(options.password).toBe('testpass');
+      expect(options.ssl).toEqual({});
+      expect(options.connectionLimit).toBe(3);
+    });
+
+    it('should spread extra options and let them win', () => {
+      const options = buildOptions({
+        ...validConfig,
+        pool: { max: 5 },
+        extra: { connectionLimit: 99, waitForConnections: false },
+      });
+
+      expect(options.connectionLimit).toBe(99);
+      expect(options.waitForConnections).toBe(false);
     });
 
     it('should handle multiple adapter instances', () => {
@@ -283,8 +367,10 @@ describe('MySQLAdapter', () => {
   });
 
   describe('MySQL specific features', () => {
+    const buildOptions = (config: DatabaseConfig) => (new MySQLAdapter(config) as any).buildDriverOptions();
+
     it('should use standard MySQL port 3306', () => {
-      const adapter = new MySQLAdapter({
+      const options = buildOptions({
         host: 'localhost',
         port: 3306,
         database: 'db',
@@ -292,21 +378,14 @@ describe('MySQLAdapter', () => {
         password: 'pass',
       });
 
-      const connStr = (adapter as any).createConnectionString();
-      expect(connStr).toContain(':3306/');
+      expect(options.port).toBe(3306);
     });
 
     it('should support custom MySQL ports', () => {
       const customPorts = [3307, 3308, 33060];
 
       customPorts.forEach((port) => {
-        const adapter = new MySQLAdapter({
-          ...validConfig,
-          port,
-        });
-
-        const connStr = (adapter as any).createConnectionString();
-        expect(connStr).toContain(`:${port}/`);
+        expect(buildOptions({ ...validConfig, port }).port).toBe(port);
       });
     });
 
@@ -319,11 +398,7 @@ describe('MySQLAdapter', () => {
         password: 'rootpass',
       };
 
-      const adapter = new MySQLAdapter(rootConfig);
-      expect(adapter).toBeDefined();
-
-      const connStr = (adapter as any).createConnectionString();
-      expect(connStr).toContain('root:');
+      expect(buildOptions(rootConfig).user).toBe('root');
     });
   });
 });
