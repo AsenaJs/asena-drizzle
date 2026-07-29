@@ -1,4 +1,4 @@
-import { Inject, PostConstruct } from '@asenajs/asena/decorators/ioc';
+import { Inject, OnStart, OnStop } from '@asenajs/asena/decorators/ioc';
 import { ICoreServiceNames } from '@asenajs/asena/ioc/types';
 import type { ServerLogger } from '@asenajs/asena/logger';
 import type { DatabaseOptions } from './types';
@@ -88,7 +88,7 @@ export abstract class AsenaDatabaseService<T = any> {
     }
   }
 
-  @PostConstruct()
+  @OnStart()
   protected async onStart() {
     try {
       // Check if options are set before proceeding
@@ -119,6 +119,22 @@ export abstract class AsenaDatabaseService<T = any> {
       this.options.logger.error('❌ Database connection failed:', error);
       throw new Error(`Database connection failed: ${error}`);
     }
+  }
+
+  @OnStop()
+  protected async onStop() {
+    // Until the framework grew a stop phase, nothing ever called disconnect() - the pool
+    // outlived the server that opened it. That is invisible for a process that exits right
+    // after, and fatal for a test run where every file boots its own container: the pools
+    // accumulate until the database refuses new clients, and the failure surfaces in whichever
+    // file happens to run last rather than in the one that leaked.
+    await this.disconnect();
+
+    // Reported after the fact: a failing hook is logged and skipped by the framework, so a
+    // silent success is worth one line to make the release visible in the shutdown log.
+    this.options?.logger?.info(
+      `🔌 Database Disconnected [${this.options.type.toUpperCase()}] ${this.options.config.name ? `- ${this.options.config.name}` : ''}`,
+    );
   }
 
   /**
