@@ -13,7 +13,7 @@ import { collectTransactionalMethods } from './transactionMetadata';
  *
  * Transient entries (`instance: null`) are skipped: the container constructs a fresh instance
  * per resolve and post-processes each one as it is built, so there is no single instance whose
- * own properties could be checked ahead of time.
+ * own properties could be checked ahead of time. Overridden keys (test doubles) are skipped too.
  *
  * @param container - The container whose registered services are inspected
  * @throws {Error} Naming every unwrapped `<Class>.<method>` when at least one is found
@@ -22,7 +22,12 @@ export function verifyTransactionalMethodsAreWrapped(container: Container): void
   const unwrapped: string[] = [];
   const services = container.services ?? {};
 
-  for (const registry of Object.values(services)) {
+  for (const [key, registry] of Object.entries(services)) {
+    // A test double seeded through `overrides` is registered under the real name with the
+    // double's constructor - if that extends the real class, its @Transaction metadata is on
+    // the chain but nothing ever wraps a double, and nothing should
+    if (container.isOverridden?.(key)) continue;
+
     const entries = Array.isArray(registry) ? registry : [registry];
 
     for (const entry of entries) {

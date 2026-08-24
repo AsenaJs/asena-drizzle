@@ -1,7 +1,7 @@
 import { Inject, OnStart, OnStop } from '@asenajs/asena/decorators/ioc';
 import { ICoreServiceNames } from '@asenajs/asena/ioc/types';
 import { ComponentConstants } from '@asenajs/asena/ioc/constants';
-import { getOwnTypedMetadata } from '@asenajs/asena/utils';
+import { getOwnTypedMetadata, getTypedMetadata } from '@asenajs/asena/utils';
 import type { Container } from '@asenajs/asena/container';
 import type { ServerLogger } from '@asenajs/asena/logger';
 import type { DatabaseOptions } from './types';
@@ -198,8 +198,7 @@ export abstract class AsenaDatabaseService<T = any> {
 
     // The @Database wrapper is the leaf class and carries its own registered name; a
     // hand-constructed service has none and can therefore never match an ALS entry.
-    const databaseName = getOwnTypedMetadata<string>(ComponentConstants.NameKey, this.constructor);
-    const activeTx = databaseName ? getActiveTx(databaseName) : undefined;
+    const activeTx = this.findActiveTx();
 
     if (activeTx !== undefined) {
       return activeTx as T;
@@ -236,37 +235,63 @@ export abstract class AsenaDatabaseService<T = any> {
    * engine's Phase A, where start hooks run at construction - inside `prepareInstance`,
    * before `register` records the instance in `container.lifecycle` and before the remaining
    * components (the ones that still need wrapping) are registered. Checking at that moment
-   * would report components that have not had their turn yet, so the check is deferred to
-   * the first connection read instead, by which time registration is long finished.
+   * would report components that have not had their turn yet, so the check is deferred to a
+   * later connection read, and only one that lands after this service's own registration.
    */
   private runTransactionBootGuard(): void {
-    const container = this.container;
+    if (!this.container) return;
 
-    if (!container || containersWithVerifiedTransactions.has(container)) return;
-
-    const registered = container.lifecycle?.some((component) => component.instance === this);
-
-    if (!registered) {
-      this.transactionBootGuardDeferred = true;
+    if (this.isRegistered()) {
+      this.verifyContainerOnce();
 
       return;
     }
+
+    this.transactionBootGuardDeferred = true;
+  }
+
+  private runDeferredTransactionBootGuard(): void {
+    // A read that lands while Phase A is still registering must not freeze the verdict for
+    // the whole boot: keep deferring until this service shows up in the lifecycle list.
+    if (!this.transactionBootGuardDeferred || !this.isRegistered()) return;
+
+    this.transactionBootGuardDeferred = false;
+    this.verifyContainerOnce();
+  }
+
+  private isRegistered(): boolean {
+    return Boolean(this.container?.lifecycle?.some((component) => component.instance === this));
+  }
+
+  private verifyContainerOnce(): void {
+    const container = this.container;
+
+    if (!container || containersWithVerifiedTransactions.has(container)) return;
 
     containersWithVerifiedTransactions.add(container);
     verifyTransactionalMethodsAreWrapped(container);
   }
 
-  private runDeferredTransactionBootGuard(): void {
-    if (!this.transactionBootGuardDeferred) return;
+  /**
+   * The transaction `@Transaction` opened for this database, if the call is inside one.
+   *
+   * `@Transaction({ database })` keys the store by whatever name the user gave, which is the
+   * service's registered name - or, for a service that also carries `@Implements`, the
+   * interface key the engine registers it under as well. Both are tried.
+   */
+  private findActiveTx(): unknown {
+    const names = [
+      getOwnTypedMetadata<string>(ComponentConstants.NameKey, this.constructor),
+      getTypedMetadata<string>(ComponentConstants.InterfaceKey, this.constructor),
+    ];
 
-    this.transactionBootGuardDeferred = false;
+    for (const name of names) {
+      const activeTx = name ? getActiveTx(name) : undefined;
 
-    const container = this.container;
+      if (activeTx !== undefined) return activeTx;
+    }
 
-    if (!container || containersWithVerifiedTransactions.has(container)) return;
-
-    containersWithVerifiedTransactions.add(container);
-    verifyTransactionalMethodsAreWrapped(container);
+    return undefined;
   }
 
   // Method to set database options (for property injection compatibility)

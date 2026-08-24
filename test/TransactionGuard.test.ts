@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import { AsenaServerFactory } from '@asenajs/asena';
 import { Service } from '@asenajs/asena/decorators';
-import { Inject } from '@asenajs/asena/decorators/ioc';
+import { Inject, Scope } from '@asenajs/asena/decorators/ioc';
 import { Database } from '../lib/decorators/Database';
 import { Drizzle } from '../lib/decorators/Drizzle';
 import { Transaction } from '../lib/decorators/Transaction';
@@ -170,6 +170,96 @@ describe('@Transaction boot guard', () => {
     await second.callOnStart();
 
     expect(container.reads).toBe(1);
+  });
+
+  it('defers the check to the first connection read after registration when onStart ran in Phase A', async () => {
+    @Service('DeferredUnwrappedService')
+    class DeferredUnwrappedService {
+      @Transaction({ database: 'ProbeDb' })
+      async write(): Promise<void> {}
+    }
+
+    class ProbeDatabase extends AsenaDatabaseService<any> {
+      public async callOnStart(): Promise<void> {
+        await this.onStart();
+      }
+    }
+
+    (ProbeDatabase as any).prototype.createAdapter = () => fakeAdapter();
+
+    const db = new ProbeDatabase();
+    const lifecycle: Array<{ instance: unknown }> = [];
+    const container = {
+      lifecycle,
+      services: {
+        ProbeDb: { Class: ProbeDatabase, instance: db, singleton: true },
+        DeferredUnwrappedService: {
+          Class: DeferredUnwrappedService,
+          instance: new DeferredUnwrappedService(),
+          singleton: true,
+        },
+      },
+      isOverridden: () => false,
+    };
+
+    (db as any).container = container;
+    (db as any).setDatabaseOptions({ type: 'bun-sql', config: { database: 'probe' }, logger: silentLogger });
+
+    // Not in the lifecycle list yet: this is the Phase-A shape, onStart must not verify
+    await db.callOnStart();
+
+    // Still registering: a read must neither throw nor freeze the verdict
+    expect(() => db.connection).not.toThrow();
+
+    lifecycle.push({ instance: db });
+
+    expect(() => db.connection).toThrow('DeferredUnwrappedService.write');
+    // Once per container: the verdict is not re-run on the next read
+    expect(() => db.connection).not.toThrow();
+  });
+
+  it('skips a transient @Transaction service - there is no single instance to inspect', async () => {
+    @Service({ name: 'TransientTxService', scope: Scope.PROTOTYPE })
+    class TransientTxService {
+      @Transaction({ database: 'GuardDb' })
+      async write(): Promise<void> {}
+    }
+
+    const server = await bootWith([GuardDb, TransientTxService]);
+
+    await server.start();
+    await server.stop();
+  });
+
+  it('skips a double seeded through overrides even when it extends the real class', async () => {
+    @Service('OverriddenTxService')
+    class OverriddenTxService {
+      @Transaction({ database: 'GuardDb' })
+      async write(): Promise<string> {
+        return 'real';
+      }
+    }
+
+    class Stub extends OverriddenTxService {
+      async write(): Promise<string> {
+        return 'stub';
+      }
+    }
+
+    const server: any = await AsenaServerFactory.create({
+      logger: silentLogger,
+      components: [GuardDb, OverriddenTxService],
+      overrides: { OverriddenTxService: new Stub() },
+      headless: true,
+    });
+
+    await server.start();
+
+    const instance: any = await server.coreContainer.container.resolve('OverriddenTxService');
+
+    expect(await instance.write()).toBe('stub');
+
+    await server.stop();
   });
 
   it('aborts the boot for a transactional class inside a post-processor dependency closure (Phase A)', async () => {
