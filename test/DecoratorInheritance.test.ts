@@ -26,7 +26,7 @@ const users = pgTable('inheritance_users', {
 
 @Service('InheritanceDb')
 class FakeDatabase {
-  public connection = { __label: 'pool' };
+  public rootConnection = { __label: 'pool' };
 }
 
 abstract class ReadOnlyRepositoryBase extends BaseRepository<typeof users> {

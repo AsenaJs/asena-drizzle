@@ -5,6 +5,7 @@ import { ComponentConstants } from '@asenajs/asena/ioc/constants';
 import { getOwnTypedMetadata } from '@asenajs/asena/utils';
 import { AsenaDatabaseService } from '../lib/DatabaseService';
 import { Database } from '../lib/decorators/Database';
+import { runWithTx } from '../lib/transaction/TransactionContext';
 import type { DatabaseConfig, DatabaseOptions } from '../lib/types';
 import { BunSQLAdapter, MySQLAdapter, PostgreSQLAdapter } from '../lib/adapters';
 
@@ -172,6 +173,67 @@ describe('AsenaDatabaseService', () => {
       const connection = service.connection;
 
       expect(connection).toBe(mockConnection);
+    });
+
+    it('should throw from rootConnection when adapter not initialized', () => {
+      expect(() => service.rootConnection).toThrow('Database adapter not initialized');
+    });
+  });
+
+  // `connection` consults AsyncLocalStorage keyed by the service's registered name, so these
+  // tests need a class that carries its own NameKey - a bare subclass has none.
+  describe('transaction-aware connection', () => {
+    @Service('TxAwareDb')
+    class TxAwareDatabase extends AsenaDatabaseService<any> {}
+
+    const buildNamed = (): TxAwareDatabase => {
+      const named = new TxAwareDatabase();
+
+      (named as unknown as { adapter: unknown }).adapter = { connection: { __label: 'pool' } };
+
+      return named;
+    };
+
+    it('returns the active transaction inside runWithTx and the pool outside', async () => {
+      const named = buildNamed();
+      const activeTx = { __label: 'tx' };
+      let seenInside: unknown;
+
+      await runWithTx('TxAwareDb', activeTx, () => {
+        seenInside = named.connection;
+      });
+
+      expect(seenInside).toBe(activeTx);
+      expect(named.connection).toEqual({ __label: 'pool' });
+    });
+
+    it('rootConnection always returns the pooled connection, even inside a transaction', async () => {
+      const named = buildNamed();
+      const activeTx = { __label: 'tx' };
+      let seenInside: unknown;
+
+      await runWithTx('TxAwareDb', activeTx, () => {
+        seenInside = named.rootConnection;
+      });
+
+      expect(seenInside).toEqual({ __label: 'pool' });
+      expect(named.rootConnection).toEqual({ __label: 'pool' });
+    });
+
+    it('a service without a metadata name never consults the ALS store', async () => {
+      // Even with an active transaction registered under another service's name, a
+      // hand-built instance has no own NameKey and must fall through to the pool.
+      const plain = new TestDatabaseService();
+
+      (plain as unknown as { adapter: unknown }).adapter = { connection: { __label: 'pool' } };
+
+      let seenInside: unknown;
+
+      await runWithTx('TxAwareDb', { __label: 'tx' }, () => {
+        seenInside = plain.connection;
+      });
+
+      expect(seenInside).toEqual({ __label: 'pool' });
     });
   });
 
@@ -571,5 +633,49 @@ describe('AsenaDatabaseService shutdown integration', () => {
 
     expect(probe.disconnectCalls).toBe(1);
     expect(probe.adapter).toBeNull();
+  });
+});
+
+// The thunk form exists so a database service can live in a shared package: the whole
+// configuration is produced at construction time, after module-level env reading, instead
+// of being frozen into the class definition.
+describe('@Database lazy options (thunk form)', () => {
+  it('evaluates the thunk at construction, not at decoration', () => {
+    let calls = 0;
+
+    @Database(() => {
+      calls++;
+
+      return { type: 'bun-sql', config: { database: 'lazy' } };
+    })
+    class LazyDatabase extends AsenaDatabaseService {}
+
+    // Decoration must not have run the thunk yet.
+    expect(calls).toBe(0);
+
+    new (LazyDatabase as any)();
+
+    expect(calls).toBe(1);
+  });
+
+  it('registers under the class name (a thunk cannot carry a name)', () => {
+    @Database(() => ({ type: 'bun-sql', config: { database: 'lazy' } }))
+    class LazyNamedDatabase extends AsenaDatabaseService {}
+
+    expect(getOwnTypedMetadata<string>(ComponentConstants.NameKey, LazyNamedDatabase)).toBe('LazyNamedDatabase');
+  });
+
+  it('resolves the options onto the instance like the object form', () => {
+    const options = { type: 'postgresql' as const, config: { database: 'lazy' } };
+
+    @Database(() => options)
+    class LazyOptionsDatabase extends AsenaDatabaseService<any> {}
+
+    const instance: any = new (LazyOptionsDatabase as any)();
+
+    expect(instance.options.type).toBe('postgresql');
+    expect(instance.options.config.database).toBe('lazy');
+    // The logger defaulting lands on the resolved options object.
+    expect(instance.options.logger).toBe(console);
   });
 });

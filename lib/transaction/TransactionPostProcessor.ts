@@ -1,22 +1,28 @@
 import 'reflect-metadata';
-import { getOwnMetadata } from 'reflect-metadata/no-conflict';
 import { Inject } from '@asenajs/asena/decorators/ioc';
 import type { ComponentPostProcessor } from '@asenajs/asena/ioc/types';
 import { ICoreServiceNames } from '@asenajs/asena/ioc/types';
 import type { Container } from '@asenajs/asena/container';
-import { getOwnTypedMetadata, getPrototypeChainOf } from '@asenajs/asena/utils';
+import { getOwnTypedMetadata } from '@asenajs/asena/utils';
 import { AsenaDatabaseService } from '../DatabaseService';
-import { TRANSACTION_METADATA_KEY, type TransactionOptions } from './TransactionOptions';
+import type { TransactionOptions } from './TransactionOptions';
 import { DRIZZLE_OPTIONS_KEY, type DrizzleOptions } from './DrizzleOptions';
+import { collectTransactionalMethods } from './transactionMetadata';
 import { executeTransactional } from './executeTransactional';
 
 /**
  * The shape we need from a resolved `AsenaDatabaseService` — exposed as
- * `connection` by the base class. Kept structural so callers are not forced
+ * `rootConnection` by the base class. Kept structural so callers are not forced
  * to import the concrete drizzle dialect types.
+ *
+ * `rootConnection`, never `connection`: `AsenaDatabaseService#connection` is
+ * transaction-aware (it returns the ambient transaction when one is active),
+ * and this holder must always reach the pooled connection — `REQUIRES_NEW`
+ * inside an active transaction calls it expecting the ROOT, and the resolved
+ * value is cached for the process lifetime.
  */
 interface TransactableConnectionHolder {
-  connection: {
+  rootConnection: {
     transaction<R>(callback: (tx: unknown) => Promise<R>, config?: Record<string, unknown>): Promise<R>;
   };
 }
@@ -44,36 +50,10 @@ export class TransactionPostProcessor implements ComponentPostProcessor {
 
   // Caches the resolved root drizzle instance per database service name so a
   // hot transactional path does not repeatedly walk the container map.
-  private readonly rootDbCache = new Map<string, TransactableConnectionHolder['connection']>();
-
-  /**
-   * Merges every `@Transaction` map on the prototype chain, ancestors first.
-   *
-   * `@Transaction` writes to the class that declares the method, so a shared base class holds
-   * its own map. Reading own-only meant a base class's transactional methods ran with
-   * autocommit - silently, since the method still returned normally and each write committed
-   * on its own. Reading the nearest ancestor instead (`getMetadata`) was worse than it looks:
-   * it worked right up until the concrete class declared a `@Transaction` of its own, at which
-   * point the base's map was shadowed and its methods quietly left the transaction.
-   */
-  private collectTransactionalMethods(Class: any): Map<string, TransactionOptions> {
-    const merged = new Map<string, TransactionOptions>();
-
-    for (const link of getPrototypeChainOf(Class)) {
-      const own = getOwnMetadata(TRANSACTION_METADATA_KEY, link) as Map<string, TransactionOptions> | undefined;
-
-      if (!own) continue;
-
-      for (const [methodName, options] of own.entries()) {
-        merged.set(methodName, options);
-      }
-    }
-
-    return merged;
-  }
+  private readonly rootDbCache = new Map<string, TransactableConnectionHolder['rootConnection']>();
 
   public async postProcess<T>(instance: T, Class: any): Promise<T> {
-    const metadata = this.collectTransactionalMethods(Class);
+    const metadata = collectTransactionalMethods(Class);
 
     if (metadata.size === 0) {
       return instance;
@@ -137,16 +117,16 @@ export class TransactionPostProcessor implements ComponentPostProcessor {
 
   private resolveRootDb(
     container: Container,
-    cache: Map<string, TransactableConnectionHolder['connection']>,
+    cache: Map<string, TransactableConnectionHolder['rootConnection']>,
     databaseName: string,
     Class: { name: string },
-  ): TransactableConnectionHolder['connection'] {
+  ): TransactableConnectionHolder['rootConnection'] {
     const cached = cache.get(databaseName);
 
     if (cached) return cached;
 
     const service = this.resolveDatabaseService(container, databaseName, Class);
-    const connection = service.connection as TransactableConnectionHolder['connection'];
+    const connection = service.rootConnection as TransactableConnectionHolder['rootConnection'];
 
     cache.set(databaseName, connection);
 

@@ -36,7 +36,9 @@ const bootWith = async (components: any[]) => {
 
 @Service('WrapperDb')
 class FakeDatabase {
-  public connection = { __label: 'pool' };
+  // `rootConnection` is what @Repository's injection expression reads - it must never see
+  // an ambient transaction, so the double exposes the pooled shape only.
+  public rootConnection = { __label: 'pool' };
 }
 
 @Service('AuditService')
@@ -86,7 +88,7 @@ describe('@Repository wrapper metadata', () => {
     // its methods quietly ran with autocommit - each write committing on its own, a mid-method
     // failure leaving partial rows, and the method returning normally.
     const { TRANSACTION_METADATA_KEY } = await import('../lib/transaction/TransactionOptions');
-    const { TransactionPostProcessor } = await import('../lib/transaction/TransactionPostProcessor');
+    const { collectTransactionalMethods } = await import('../lib/transaction/transactionMetadata');
 
     abstract class AuditedBase extends BaseRepository<typeof users> {
       public async archive(): Promise<string> {
@@ -104,14 +106,14 @@ describe('@Repository wrapper metadata', () => {
     Reflect.defineMetadata(TRANSACTION_METADATA_KEY, new Map([['archive', {}]]), AuditedBase);
     Reflect.defineMetadata(TRANSACTION_METADATA_KEY, new Map([['register', {}]]), ShadowingRepository);
 
-    const collected = (new TransactionPostProcessor() as any).collectTransactionalMethods(ShadowingRepository);
+    const collected = collectTransactionalMethods(ShadowingRepository);
 
     expect([...collected.keys()].sort()).toEqual(['archive', 'register']);
   });
 
   test('a subclass entry overrides the base entry for the same method name', async () => {
     const { TRANSACTION_METADATA_KEY } = await import('../lib/transaction/TransactionOptions');
-    const { TransactionPostProcessor } = await import('../lib/transaction/TransactionPostProcessor');
+    const { collectTransactionalMethods } = await import('../lib/transaction/transactionMetadata');
 
     abstract class OptionBase extends BaseRepository<typeof users> {
       public async write(): Promise<void> {}
@@ -127,18 +129,18 @@ describe('@Repository wrapper metadata', () => {
       OverridingTxRepository,
     );
 
-    const collected = (new TransactionPostProcessor() as any).collectTransactionalMethods(OverridingTxRepository);
+    const collected = collectTransactionalMethods(OverridingTxRepository);
 
     // Ancestors first, nearest wins - same rule as every other merged key.
     expect(collected.get('write')).toEqual({ database: 'Subclass' });
   });
 
   test('a class with no @Transaction anywhere collects nothing', async () => {
-    const { TransactionPostProcessor } = await import('../lib/transaction/TransactionPostProcessor');
+    const { collectTransactionalMethods } = await import('../lib/transaction/transactionMetadata');
 
     class Plain {}
 
-    const collected = (new TransactionPostProcessor() as any).collectTransactionalMethods(Plain);
+    const collected = collectTransactionalMethods(Plain);
 
     expect(collected.size).toBe(0);
   });

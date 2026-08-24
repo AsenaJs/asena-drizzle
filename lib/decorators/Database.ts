@@ -26,7 +26,11 @@ export interface DatabaseDecoratorOptions extends DatabaseOptions {
  * - Supporting multiple database types (PostgreSQL, MySQL, BunSQL)
  * - Integrating with AsenaJS IoC container
  *
- * @param {DatabaseDecoratorOptions} options - Database configuration options
+ * @param {DatabaseDecoratorOptions | (() => DatabaseOptions)} options - Database configuration
+ *   options, or a thunk returning them. A thunk is evaluated when the container constructs the
+ *   component — after module-level env reading — so a shared package can defer configuration
+ *   to runtime. A thunk cannot carry a `name`, so with the thunk form the wrapper registers
+ *   under the decorated class's own name.
  *
  * @example
  * ```typescript
@@ -41,6 +45,13 @@ export interface DatabaseDecoratorOptions extends DatabaseOptions {
  *     password: 'password',
  *   }
  * })
+ * export class MyDatabase extends AsenaDatabaseService {}
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Lazy options: the thunk runs at construction time, after env files are read
+ * @Database(() => ({ type: 'bun-sql', config: env.db, drizzleConfig: { schema } }))
  * export class MyDatabase extends AsenaDatabaseService {}
  * ```
  *
@@ -81,7 +92,7 @@ export interface DatabaseDecoratorOptions extends DatabaseOptions {
  *
  * @returns {ClassDecorator} Class decorator function
  */
-export function Database(options: DatabaseDecoratorOptions) {
+export function Database(options: DatabaseDecoratorOptions | (() => DatabaseOptions)) {
   return function <T extends new (...args: any[]) => AsenaDatabaseService>(target: T) {
     // Extend the decorated class itself. Extending AsenaDatabaseService discarded the
     // target's prototype chain, so anything the service inherited from an intermediate
@@ -91,18 +102,23 @@ export function Database(options: DatabaseDecoratorOptions) {
     // target's own name, and IocEngine treated the parent name as a dependency. That is
     // fixed in @asenajs/asena, which now skips a parent resolving to the component's own
     // name - hence the peer bump.
-    @Service(options.name || target.name)
+    @Service(typeof options === 'function' ? target.name : options.name || target.name)
     class DatabaseServiceClass extends (target as unknown as typeof AsenaDatabaseService) {
       public constructor() {
         // Call super without parameters for AsenaJS property injection
         super();
 
-        // Set options via property injection method
-        if (!options.logger) {
-          options.logger = console;
+        // A thunk defers the whole configuration to construction time. The logger
+        // defaulting therefore runs on the *resolved* options - never on the outer
+        // `options`, which for a thunk is a function, and for an object must keep
+        // being mutated in place (tests capture the same reference).
+        const resolved = typeof options === 'function' ? options() : options;
+
+        if (!resolved.logger) {
+          resolved.logger = console;
         }
 
-        this.setDatabaseOptions(options);
+        this.setDatabaseOptions(resolved);
       }
     }
 

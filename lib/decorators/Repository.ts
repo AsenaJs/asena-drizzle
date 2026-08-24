@@ -134,12 +134,13 @@ export function Repository(options: RepositoryDecoratorOptions) {
     // Add database injection via decorator to the wrapper class
     const databaseServiceName = options.databaseService;
 
-    // Target the private backing field rather than `db` itself. The IoC
-    // container installs an *own-property* getter for whatever key it sees,
-    // and an own `db` would shadow the ALS-aware prototype getter on
-    // BaseRepository (causing repository writes inside @Transaction to bypass
-    // the active tx and hit the pool).
-    Inject(databaseServiceName, (service: any) => service.connection)(RepositoryServiceClass.prototype, '_db');
+    // Target the private backing field rather than `db` itself, and read `rootConnection`
+    // rather than `connection`. The IoC container installs an *own-property* getter for
+    // whatever key it sees and re-evaluates the injection expression on every read, so an
+    // own `db` would shadow the ALS-aware prototype getter on BaseRepository, and a
+    // tx-aware `connection` would silently turn `_db` into the ambient transaction.
+    // `BaseRepository.db` performs the ALS lookup itself; the fallback must stay pooled.
+    Inject(databaseServiceName, (service: any) => service.rootConnection)(RepositoryServiceClass.prototype, '_db');
 
     // No member or metadata copying. The wrapper `extends target`, so every method, getter,
     // static and metadata record on the target - and on anything the target itself extends - is
