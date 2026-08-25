@@ -4,6 +4,7 @@ import { Drizzle } from '../lib/decorators/Drizzle';
 import { TransactionContext, getActiveTx } from '../lib/transaction/TransactionContext';
 import { TransactionPostProcessor } from '../lib/transaction/TransactionPostProcessor';
 import { AsenaDatabaseService } from '../lib/DatabaseService';
+import { Service as ServiceDecorator } from '@asenajs/asena/decorators';
 
 /**
  * Minimal drizzle-ish transaction stub: captures every `transaction()` call it
@@ -159,6 +160,54 @@ describe('@Transaction decorator', () => {
     expect(dbStub.calls.length).toBe(2);
     expect(dbStub.calls[0]?.parentId).toBeNull();
     expect(dbStub.calls[1]?.parentId).toBeNull();
+  });
+
+  it('REQUIRES_NEW regression: resolveRootDb uses rootConnection, never the tx-aware connection', async () => {
+    // `connection` is transaction-aware now. If resolveRootDb read it, REQUIRES_NEW inside an
+    // active transaction would call transaction() on the ACTIVE TX (a savepoint) and cache
+    // that tx as the "root" for the rest of the process. The root stub and the active tx are
+    // distinct spies so the test can say exactly which one was used.
+    const rootTransaction = mock(async (cb: (tx: unknown) => Promise<unknown>) => cb(activeTxHolder.tx));
+    const txTransaction = mock(async (cb: (tx: unknown) => Promise<unknown>) => cb(activeTxHolder.tx));
+    const activeTxHolder = { tx: { transaction: txTransaction, __tx: true } };
+    const root = { transaction: rootTransaction };
+
+    // @Service gives the stub its own NameKey, which is what the tx-aware `connection`
+    // getter needs to find the active tx in the ALS store.
+    @ServiceDecorator('RegressionDb')
+    class NamedDb extends AsenaDatabaseService<any> {}
+
+    const dbService = new NamedDb();
+
+    (dbService as unknown as { adapter: { connection: unknown } }).adapter = { connection: root } as any;
+
+    const namedContainer = buildContainerStub('RegressionDb', dbService);
+    let connectionInsideOuter: unknown;
+
+    class Service {
+      @Transaction({ database: 'RegressionDb' })
+      async outer() {
+        connectionInsideOuter = dbService.connection;
+
+        return this.inner();
+      }
+
+      @Transaction({ database: 'RegressionDb', propagation: 'REQUIRES_NEW' })
+      async inner() {
+        return getActiveTx('RegressionDb');
+      }
+    }
+
+    const svc = await wrapService(new Service(), namedContainer);
+
+    await svc.outer();
+
+    // connection was tx-aware inside the scope (the failure this test guards starts there)…
+    expect(connectionInsideOuter).toBe(activeTxHolder.tx);
+    // …yet both transactions were opened on the ROOT, and the active tx was never reused.
+    expect(rootTransaction).toHaveBeenCalledTimes(2);
+    expect(txTransaction).not.toHaveBeenCalled();
+    expect(dbService.rootConnection).toBe(root);
   });
 
   it('forwards isolationLevel / accessMode to the drizzle transaction config', async () => {

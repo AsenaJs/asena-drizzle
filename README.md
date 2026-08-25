@@ -120,7 +120,7 @@ export class UserService {
 
 Wrap any service method with `@Transaction` to run it inside a Drizzle transaction. Repository calls made from within the method automatically pick up the active transaction via `AsyncLocalStorage` — no explicit `tx` parameter passing required.
 
-> **Setup required:** make sure you have a `@Drizzle`-decorated class in your source folder (see [Step 3 of Quick Start](#3-activate-the-transaction-post-processor)). Without it AsenaJS won't register the transaction post-processor and `@Transaction` will be a no-op.
+> **Setup required:** make sure you have a `@Drizzle`-decorated class in your source folder (see [Step 3 of Quick Start](#3-activate-the-transaction-post-processor)). Without it, `@Transaction` methods would run with autocommit, so the boot **fails** with `@Transaction methods are not wrapped: <Class>.<method>` instead of starting a half-configured server. The same error fires when a transactional class sits inside a post-processor's dependency closure (i.e. a `@Drizzle` subclass — or something it injects — `@Inject`s the class): such classes are constructed before post-processing is active and can never be wrapped; keep them out of that closure.
 
 ```typescript
 import { Service } from '@asenajs/asena/decorators';
