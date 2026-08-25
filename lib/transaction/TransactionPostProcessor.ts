@@ -35,12 +35,12 @@ interface TransactableConnectionHolder {
  * This base class **does not** carry a `@PostProcessor()` decorator on its
  * own — AsenaJS only scans user-side source folders, not `node_modules`. To
  * activate it, users subclass it inside their project and apply
- * `@DrizzleConfig({ ... })`, which chains the post-processor decorator onto
+ * `@Drizzle({ ... })`, which chains the post-processor decorator onto
  * the subclass:
  *
  * ```typescript
  * // src/config/AppDrizzle.ts
- * @DrizzleConfig({ defaultDb: 'MainDatabase' })
+ * @Drizzle({ defaultDb: 'MainDatabase' })
  * export class AppDrizzle extends TransactionPostProcessor {}
  * ```
  */
@@ -67,14 +67,14 @@ export class TransactionPostProcessor implements ComponentPostProcessor {
     for (const [methodName, rawOptions] of metadata.entries()) {
       // Resolve the database name with the following precedence:
       //   1. explicit `@Transaction({ database: 'X' })` option
-      //   2. `defaultDb` from the user's @DrizzleConfig
+      //   2. `defaultDb` from the user's @Drizzle
       //   3. fail fast at registration time
       const resolvedDatabase = rawOptions.database ?? defaultDb;
 
       if (!resolvedDatabase) {
         throw new Error(
           `@Transaction on ${Class.name}.${methodName} could not resolve a database. ` +
-            `Either pass 'database' to @Transaction, or set 'defaultDb' on your @DrizzleConfig class.`,
+            `Either pass 'database' to @Transaction, or set 'defaultDb' on your @Drizzle class.`,
         );
       }
 
@@ -105,7 +105,7 @@ export class TransactionPostProcessor implements ComponentPostProcessor {
   }
 
   /**
-   * Reads the @DrizzleConfig options that were attached to the user-side
+   * Reads the @Drizzle options that were attached to the user-side
    * subclass. Falls back to an empty object so behavior is identical to a
    * subclass that did not configure anything.
    */
