@@ -1,5 +1,5 @@
 ---
-"@asenajs/asena-drizzle": minor
+"@asenajs/asena-drizzle": major
 ---
 
 `@Database` now accepts a thunk (`@Database(() => ({ type: 'bun-sql', config: env.db }))`) whose options are evaluated when the container constructs the service — after module-level env reading — so a database service can be shipped from a shared package. A thunk cannot carry a `name`, so the thunk form registers under the decorated class's own name; the object form is unchanged.
