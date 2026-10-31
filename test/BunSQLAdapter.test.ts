@@ -208,7 +208,8 @@ describe('BunSQLAdapter', () => {
     it('should enable TLS when ssl is set', async () => {
       const options = await driverView({ ...validConfig, ssl: true });
 
-      expect(options.tls).toBe(true);
+      // Bun 1.4 normalizes `tls: true` into a TLS options object such as `{ serverName }`.
+      expect(options.tls).toBeTruthy();
     });
 
     it('should not force TLS off when ssl is omitted', () => {
