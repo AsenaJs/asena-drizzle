@@ -1,5 +1,11 @@
 # @asenajs/asena-drizzle
 
+## 4.0.1
+
+### Patch Changes
+
+- 39b003a: `@asenajs/asena` 0.12.x is now an accepted peer. No behaviour change.
+
 ## 4.0.0
 
 ### Major Changes
