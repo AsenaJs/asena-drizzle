@@ -5,8 +5,7 @@ import { getOwnTypedMetadata, getTypedMetadata } from '@asenajs/asena/utils';
 import type { Container } from '@asenajs/asena/container';
 import type { ServerLogger } from '@asenajs/asena/logger';
 import type { DatabaseOptions } from './types';
-import type { DatabaseAdapter } from './adapters';
-import { BunSQLAdapter, MySQLAdapter, PostgreSQLAdapter } from './adapters';
+import type { DatabaseAdapter } from './adapters/DatabaseAdapter';
 import { getActiveTx } from './transaction/TransactionContext';
 import { verifyTransactionalMethodsAreWrapped } from './transaction/verifyTransactionalMethodsAreWrapped';
 
@@ -133,7 +132,7 @@ export abstract class AsenaDatabaseService<T = any> {
       }
 
       // Create appropriate adapter based on database type
-      this.adapter = this.createAdapter();
+      this.adapter = await this.createAdapter();
 
       // Connect to database
       await this.adapter.connect();
@@ -299,7 +298,9 @@ export abstract class AsenaDatabaseService<T = any> {
     this.options = options;
   }
 
-  private createAdapter(): DatabaseAdapter<T> {
+  // Drivers load only for the configured type: unused drizzle dialects left in the live heap push
+  // JSC into frequent full GCs and raise tail latency.
+  private async createAdapter(): Promise<DatabaseAdapter<T>> {
     if (!this.options) {
       throw new Error('Database options not initialized');
     }
@@ -307,14 +308,23 @@ export abstract class AsenaDatabaseService<T = any> {
     const { type, config, drizzleConfig } = this.options;
 
     switch (type) {
-      case 'bun-sql':
+      case 'bun-sql': {
+        const { BunSQLAdapter } = await import('./adapters/BunSQLAdapter');
+
         return new BunSQLAdapter(config, drizzleConfig) as any;
+      }
 
-      case 'postgresql':
+      case 'postgresql': {
+        const { PostgreSQLAdapter } = await import('./adapters/PostgreSQLAdapter');
+
         return new PostgreSQLAdapter(config, drizzleConfig) as any;
+      }
 
-      case 'mysql':
+      case 'mysql': {
+        const { MySQLAdapter } = await import('./adapters/MySQLAdapter');
+
         return new MySQLAdapter(config, drizzleConfig) as any;
+      }
 
       case 'sqlite':
         // For future SQLite implementation

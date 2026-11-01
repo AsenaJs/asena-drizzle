@@ -243,7 +243,7 @@ describe('AsenaDatabaseService', () => {
       await expect(service.callOnStart()).rejects.toThrow();
     });
 
-    it('should create BunSQLAdapter for bun-sql type', () => {
+    it('should create BunSQLAdapter for bun-sql type', async () => {
       const options: DatabaseOptions = {
         type: 'bun-sql',
         config: baseConfig,
@@ -254,12 +254,12 @@ describe('AsenaDatabaseService', () => {
       service.setOptions(options);
 
       // Access private method through reflection
-      const adapter = (service as any).createAdapter();
+      const adapter = await (service as any).createAdapter();
 
       expect(adapter).toBeInstanceOf(BunSQLAdapter);
     });
 
-    it('should create PostgreSQLAdapter for postgresql type', () => {
+    it('should create PostgreSQLAdapter for postgresql type', async () => {
       const options: DatabaseOptions = {
         type: 'postgresql',
         config: baseConfig,
@@ -269,12 +269,12 @@ describe('AsenaDatabaseService', () => {
 
       service.setOptions(options);
 
-      const adapter = (service as any).createAdapter();
+      const adapter = await (service as any).createAdapter();
 
       expect(adapter).toBeInstanceOf(PostgreSQLAdapter);
     });
 
-    it('should create MySQLAdapter for mysql type', () => {
+    it('should create MySQLAdapter for mysql type', async () => {
       const options: DatabaseOptions = {
         type: 'mysql',
         config: { ...baseConfig, port: 3306 },
@@ -284,12 +284,12 @@ describe('AsenaDatabaseService', () => {
 
       service.setOptions(options);
 
-      const adapter = (service as any).createAdapter();
+      const adapter = await (service as any).createAdapter();
 
       expect(adapter).toBeInstanceOf(MySQLAdapter);
     });
 
-    it('should throw error for sqlite (not implemented)', () => {
+    it('should throw error for sqlite (not implemented)', async () => {
       const options: DatabaseOptions = {
         type: 'sqlite' as any,
         config: baseConfig,
@@ -299,10 +299,10 @@ describe('AsenaDatabaseService', () => {
 
       service.setOptions(options);
 
-      expect(() => (service as any).createAdapter()).toThrow('SQLite adapter not implemented yet');
+      await expect((service as any).createAdapter()).rejects.toThrow('SQLite adapter not implemented yet');
     });
 
-    it('should throw error for unsupported database type', () => {
+    it('should throw error for unsupported database type', async () => {
       const options: DatabaseOptions = {
         type: 'mongodb' as any,
         config: baseConfig,
@@ -312,7 +312,7 @@ describe('AsenaDatabaseService', () => {
 
       service.setOptions(options);
 
-      expect(() => (service as any).createAdapter()).toThrow('Unsupported database type');
+      await expect((service as any).createAdapter()).rejects.toThrow('Unsupported database type');
     });
   });
 
@@ -342,7 +342,7 @@ describe('AsenaDatabaseService', () => {
       expect(mockLogger.error).toHaveBeenCalled();
     });
 
-    it('should pass drizzle config to adapter', () => {
+    it('should pass drizzle config to adapter', async () => {
       const schema = { users: {} };
       const options: DatabaseOptions = {
         type: 'postgresql',
@@ -357,14 +357,14 @@ describe('AsenaDatabaseService', () => {
 
       service.setOptions(options);
 
-      const adapter = (service as any).createAdapter();
+      const adapter = await (service as any).createAdapter();
 
       expect(adapter).toBeInstanceOf(PostgreSQLAdapter);
     });
   });
 
   describe('error handling', () => {
-    it('should provide clear error message on adapter creation failure', () => {
+    it('should provide clear error message on adapter creation failure', async () => {
       const options: DatabaseOptions = {
         type: 'invalid-type' as any,
         config: baseConfig,
@@ -374,10 +374,10 @@ describe('AsenaDatabaseService', () => {
 
       service.setOptions(options);
 
-      expect(() => (service as any).createAdapter()).toThrow('Unsupported database type');
+      await expect((service as any).createAdapter()).rejects.toThrow('Unsupported database type');
     });
 
-    it('should handle missing config fields gracefully', () => {
+    it('should handle missing config fields gracefully', async () => {
       const options: DatabaseOptions = {
         type: 'postgresql',
         config: {} as DatabaseConfig,
@@ -388,13 +388,13 @@ describe('AsenaDatabaseService', () => {
       service.setOptions(options);
 
       // Should create adapter without throwing
-      const adapter = (service as any).createAdapter();
+      const adapter = await (service as any).createAdapter();
       expect(adapter).toBeInstanceOf(PostgreSQLAdapter);
     });
   });
 
   describe('config options', () => {
-    it('should support database name in config', () => {
+    it('should support database name in config', async () => {
       const options: DatabaseOptions = {
         type: 'postgresql',
         config: {
@@ -407,11 +407,11 @@ describe('AsenaDatabaseService', () => {
 
       service.setOptions(options);
 
-      const adapter = (service as any).createAdapter();
+      const adapter = await (service as any).createAdapter();
       expect(adapter).toBeDefined();
     });
 
-    it('should support SSL configuration', () => {
+    it('should support SSL configuration', async () => {
       const options: DatabaseOptions = {
         type: 'postgresql',
         config: {
@@ -424,11 +424,11 @@ describe('AsenaDatabaseService', () => {
 
       service.setOptions(options);
 
-      const adapter = (service as any).createAdapter();
+      const adapter = await (service as any).createAdapter();
       expect(adapter).toBeInstanceOf(PostgreSQLAdapter);
     });
 
-    it('should support connection string in config', () => {
+    it('should support connection string in config', async () => {
       const options: DatabaseOptions = {
         type: 'postgresql',
         config: {
@@ -441,7 +441,7 @@ describe('AsenaDatabaseService', () => {
 
       service.setOptions(options);
 
-      const adapter = (service as any).createAdapter();
+      const adapter = await (service as any).createAdapter();
       expect(adapter).toBeInstanceOf(PostgreSQLAdapter);
     });
   });

@@ -27,4 +27,5 @@ export {
 } from './lib/transaction';
 
 // Adapters (for advanced usage)
-export { DatabaseAdapter, BunSQLAdapter, PostgreSQLAdapter, MySQLAdapter } from './lib/adapters';
+export { DatabaseAdapter } from './lib/adapters/DatabaseAdapter';
+export type { BunSQLAdapter, PostgreSQLAdapter, MySQLAdapter } from './lib/adapters';
