@@ -5,7 +5,7 @@
     "": {
       "name": "@asenajs/asena-drizzle",
       "devDependencies": {
-        "@asenajs/asena": "^0.11.0",
+        "@asenajs/asena": "^0.12.1",
         "@changesets/cli": "^2.31.1",
         "@types/bun": "latest",
         "@types/pg": "^8.23.1",
@@ -32,7 +32,7 @@
     },
   },
   "packages": {
-    "@asenajs/asena": ["@asenajs/asena@0.11.0", "", { "dependencies": { "reflect-metadata": "^0.2.2" } }, "sha512-ilDbpmqDooqpU8lTz7VfLMFZ/ngjsNslG73gf7V1sdtW/V3AjxvtTAsF6KntM/DmtVC42ZN4lCMYjFlBzdm+bw=="],
+    "@asenajs/asena": ["@asenajs/asena@0.12.1", "", { "dependencies": { "reflect-metadata": "^0.2.2" } }, "sha512-fFu5ThgmlbNvfBWfUtvvPFHQFovT7oxHEcgiHBiBhacK6Uy+83b+HB23omZ6ok0tOlQMFJqpP3CQ0fvENSV0Ug=="],
 
     "@babel/runtime": ["@babel/runtime@7.29.7", "", {}, "sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw=="],
 
