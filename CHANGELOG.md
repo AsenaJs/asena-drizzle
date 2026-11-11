@@ -1,5 +1,11 @@
 # @asenajs/asena-drizzle
 
+## 4.1.1
+
+### Patch Changes
+
+- 2972829: Accept @asenajs/asena 0.13 as a peer.
+
 ## 4.1.0
 
 ### Minor Changes
