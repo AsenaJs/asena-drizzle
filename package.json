@@ -50,8 +50,8 @@
     "release": "bun run build && changeset publish",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format": "bun fmt",
+    "format:check": "bun fmt --check",
     "check": "bun run lint && bun run format:check",
     "check:fix": "bun run lint:fix && bun run format"
   },
@@ -68,7 +68,6 @@
     "eslint-config-prettier": "^9.1.2",
     "mysql2": "^3.24.2",
     "pg": "^8.23.0",
-    "prettier": "^3.9.6",
     "reflect-metadata": "^0.2.2",
     "typescript-eslint": "^8.68.0"
   },
