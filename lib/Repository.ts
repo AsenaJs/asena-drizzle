@@ -52,6 +52,15 @@ export interface DrizzleDatabase {
   execute(query: any): Promise<any>;
 }
 
+function requireBuilderMethod<T extends object, K extends keyof T>(
+  builder: T,
+  name: K,
+): asserts builder is T & Required<Pick<T, K>> {
+  if (typeof builder[name] !== 'function') {
+    throw new Error(`Query builder does not support .${String(name)}() for this database driver`);
+  }
+}
+
 /**
  * Base repository class providing common CRUD operations for Drizzle ORM entities.
  *
@@ -295,7 +304,10 @@ export abstract class BaseRepository<
    * ```
    */
   public async create(data: InsertType): Promise<SelectType> {
-    const result = await this.db.insert(this.table as any).values(data as any).returning!();
+    const query = this.db.insert(this.table as any).values(data as any);
+    requireBuilderMethod(query, 'returning');
+
+    const result = await query.returning();
 
     return result[0] as SelectType;
   }
@@ -315,7 +327,10 @@ export abstract class BaseRepository<
    * ```
    */
   public async createMany(data: InsertType[]): Promise<SelectType[]> {
-    const result = await this.db.insert(this.table as any).values(data).returning!();
+    const query = this.db.insert(this.table as any).values(data);
+    requireBuilderMethod(query, 'returning');
+
+    const result = await query.returning();
 
     return result as SelectType[];
   }
@@ -335,10 +350,13 @@ export abstract class BaseRepository<
    * ```
    */
   public async updateById(id: IdType, data: Partial<InsertType>): Promise<SelectType | undefined> {
-    const result = await this.db
+    const query = this.db
       .update(this.table as any)
       .set(data)
-      .where(eq(this.table.id, id)).returning!();
+      .where(eq(this.table.id, id));
+    requireBuilderMethod(query, 'returning');
+
+    const result = await query.returning();
 
     return result[0] as SelectType | undefined;
   }
@@ -359,10 +377,13 @@ export abstract class BaseRepository<
    * ```
    */
   public async update(where: SQL, data: Partial<InsertType>): Promise<SelectType[]> {
-    const result = await this.db
+    const query = this.db
       .update(this.table as any)
       .set(data)
-      .where(where).returning!();
+      .where(where);
+    requireBuilderMethod(query, 'returning');
+
+    const result = await query.returning();
 
     return result as SelectType[];
   }
@@ -382,7 +403,10 @@ export abstract class BaseRepository<
    * ```
    */
   public async deleteById(id: IdType): Promise<boolean> {
-    const result = await this.db.delete(this.table as any).where(eq(this.table.id, id)).returning!();
+    const query = this.db.delete(this.table as any).where(eq(this.table.id, id));
+    requireBuilderMethod(query, 'returning');
+
+    const result = await query.returning();
 
     return result.length > 0;
   }
@@ -400,7 +424,10 @@ export abstract class BaseRepository<
    * ```
    */
   public async delete(where: SQL): Promise<number> {
-    const result = await this.db.delete(this.table as any).where(where).returning!();
+    const query = this.db.delete(this.table as any).where(where);
+    requireBuilderMethod(query, 'returning');
+
+    const result = await query.returning();
 
     return result.length;
   }
