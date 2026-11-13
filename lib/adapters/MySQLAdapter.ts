@@ -38,7 +38,7 @@ export class MySQLAdapter extends DatabaseAdapter<MySql2Database<any>> {
 
       return this._connection;
     } catch (error) {
-      throw new Error(`MySQL connection failed: ${error}`);
+      throw new Error(`MySQL connection failed: ${String(error)}`);
     }
   }
 

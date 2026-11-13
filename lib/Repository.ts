@@ -219,9 +219,10 @@ export abstract class BaseRepository<
   public async findById(id: IdType): Promise<SelectType | null> {
     const result = await this.db
       .select()
-      .from(this.table as any) // Type assertion still needed
-      .where(eq((this.table as any).id, id))
-      .limit(1);
+      .from(
+        this.table as any,
+      ) // Type assertion still needed
+    .where!(eq((this.table as any).id, id)).limit(1);
 
     if (result.length === 0) {
       return null;
@@ -249,7 +250,7 @@ export abstract class BaseRepository<
     const query = this.db.select().from(this.table as any);
 
     if (where) {
-      query.where(where);
+      query.where!(where);
     }
 
     const result = await query.execute();
@@ -269,11 +270,7 @@ export abstract class BaseRepository<
    * ```
    */
   public async findOne(where: SQL<unknown> | undefined): Promise<SelectType | null> {
-    const result = await this.db
-      .select()
-      .from(this.table as any)
-      .where(where)
-      .limit(1);
+    const result = await this.db.select().from(this.table as any).where!(where).limit(1);
 
     if (result.length === 0) {
       return null;
@@ -298,10 +295,7 @@ export abstract class BaseRepository<
    * ```
    */
   public async create(data: InsertType): Promise<SelectType> {
-    const result = await this.db
-      .insert(this.table as any)
-      .values(data as any)
-      .returning();
+    const result = await this.db.insert(this.table as any).values(data as any).returning!();
 
     return result[0] as SelectType;
   }
@@ -321,10 +315,7 @@ export abstract class BaseRepository<
    * ```
    */
   public async createMany(data: InsertType[]): Promise<SelectType[]> {
-    const result = await this.db
-      .insert(this.table as any)
-      .values(data)
-      .returning();
+    const result = await this.db.insert(this.table as any).values(data).returning!();
 
     return result as SelectType[];
   }
@@ -347,8 +338,7 @@ export abstract class BaseRepository<
     const result = await this.db
       .update(this.table as any)
       .set(data)
-      .where(eq(this.table.id, id))
-      .returning();
+      .where(eq(this.table.id, id)).returning!();
 
     return result[0] as SelectType | undefined;
   }
@@ -372,8 +362,7 @@ export abstract class BaseRepository<
     const result = await this.db
       .update(this.table as any)
       .set(data)
-      .where(where)
-      .returning();
+      .where(where).returning!();
 
     return result as SelectType[];
   }
@@ -393,10 +382,7 @@ export abstract class BaseRepository<
    * ```
    */
   public async deleteById(id: IdType): Promise<boolean> {
-    const result = await this.db
-      .delete(this.table as any)
-      .where(eq(this.table.id, id))
-      .returning();
+    const result = await this.db.delete(this.table as any).where(eq(this.table.id, id)).returning!();
 
     return result.length > 0;
   }
@@ -414,10 +400,7 @@ export abstract class BaseRepository<
    * ```
    */
   public async delete(where: SQL): Promise<number> {
-    const result = await this.db
-      .delete(this.table as any)
-      .where(where)
-      .returning();
+    const result = await this.db.delete(this.table as any).where(where).returning!();
 
     return result.length;
   }
@@ -427,7 +410,7 @@ export abstract class BaseRepository<
     const query = this.db.select({ count: sql<number>`count(*)` }).from(this.table as any);
 
     if (where) {
-      query.where(where);
+      query.where!(where);
     }
 
     const result = await query.execute();
@@ -508,15 +491,15 @@ export abstract class BaseRepository<
     const query = this.db.select().from(this.table as any);
 
     if (where) {
-      query.where(where);
+      query.where!(where);
     }
 
     // Deterministic pagination: without a stable order, the underlying store
     // may return rows in different orders across pages, causing duplicates or
     // skipped rows. Fall back to ordering by the primary key when the caller
     // did not specify one.
-    query.orderBy(orderBy ?? asc(this.table.id));
-    query.limit(limit).offset(offset);
+    query.orderBy!(orderBy ?? asc(this.table.id));
+    query.limit!(limit).offset(offset);
 
     const data = (await query.execute()) as SelectType[];
 
@@ -622,11 +605,7 @@ export abstract class BaseRepository<
    * ```
    */
   public async exists(where: SQL): Promise<boolean> {
-    const result = await this.db
-      .select({ exists: sql<boolean>`1` })
-      .from(this.table as any)
-      .where(where)
-      .limit(1);
+    const result = await this.db.select({ exists: sql<boolean>`1` }).from(this.table as any).where!(where).limit(1);
 
     return result.length > 0;
   }

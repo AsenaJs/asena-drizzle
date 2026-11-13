@@ -143,7 +143,7 @@ export abstract class AsenaDatabaseService<T = any> {
       );
     } catch (error) {
       (this.options?.logger ?? console).error('❌ Database connection failed:', error);
-      throw new Error(`Database connection failed: ${error}`);
+      throw new Error(`Database connection failed: ${String(error)}`);
     }
   }
 
