@@ -57,7 +57,7 @@
   },
   "devDependencies": {
     "@asenajs/asena": "^0.11.0",
-    "@changesets/cli": "^2.31.1",
+    "@changesets/cli": "^3.0.3",
     "@types/bun": "latest",
     "@types/pg": "^8.23.1",
     "@typescript-eslint/eslint-plugin": "^8.68.0",
