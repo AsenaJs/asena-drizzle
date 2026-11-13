@@ -31,6 +31,9 @@ function builderWithoutReturning(): DrizzleDatabase {
   };
 }
 
+// Pinned whole: the changeset quotes it, and toThrow(string) would only match a substring.
+const missingReturning = new Error('Query builder does not support .returning() for this database driver');
+
 describe('BaseRepository on a driver builder without .returning()', () => {
   const id = '00000000-0000-0000-0000-000000000001';
 
@@ -38,43 +41,41 @@ describe('BaseRepository on a driver builder without .returning()', () => {
     const repo = new UserRepository();
     repo.attach(builderWithoutReturning());
 
-    await expect(repo.create({ name: 'Ada' })).rejects.toThrow('does not support .returning()');
+    await expect(repo.create({ name: 'Ada' })).rejects.toThrow(missingReturning);
   });
 
   it('createMany names the missing method', async () => {
     const repo = new UserRepository();
     repo.attach(builderWithoutReturning());
 
-    await expect(repo.createMany([{ name: 'Ada' }])).rejects.toThrow('does not support .returning()');
+    await expect(repo.createMany([{ name: 'Ada' }])).rejects.toThrow(missingReturning);
   });
 
   it('updateById names the missing method', async () => {
     const repo = new UserRepository();
     repo.attach(builderWithoutReturning());
 
-    await expect(repo.updateById(id, { name: 'Ada' })).rejects.toThrow('does not support .returning()');
+    await expect(repo.updateById(id, { name: 'Ada' })).rejects.toThrow(missingReturning);
   });
 
   it('update names the missing method', async () => {
     const repo = new UserRepository();
     repo.attach(builderWithoutReturning());
 
-    await expect(repo.update(eq(users.name, 'Ada'), { name: 'Grace' })).rejects.toThrow(
-      'does not support .returning()',
-    );
+    await expect(repo.update(eq(users.name, 'Ada'), { name: 'Grace' })).rejects.toThrow(missingReturning);
   });
 
   it('deleteById names the missing method', async () => {
     const repo = new UserRepository();
     repo.attach(builderWithoutReturning());
 
-    await expect(repo.deleteById(id)).rejects.toThrow('does not support .returning()');
+    await expect(repo.deleteById(id)).rejects.toThrow(missingReturning);
   });
 
   it('delete names the missing method', async () => {
     const repo = new UserRepository();
     repo.attach(builderWithoutReturning());
 
-    await expect(repo.delete(eq(users.name, 'Ada'))).rejects.toThrow('does not support .returning()');
+    await expect(repo.delete(eq(users.name, 'Ada'))).rejects.toThrow(missingReturning);
   });
 });
