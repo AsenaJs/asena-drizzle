@@ -1,5 +1,13 @@
 # @asenajs/asena-drizzle
 
+## 4.1.2
+
+### Patch Changes
+
+- 570dd46: Accept TypeScript 6 and 7 in the `typescript` peer range, alongside the existing 5.9 range.
+- 045b9a1: When the database service starts without options, report the "Database options not initialized" error instead of a TypeError from the failure logger.
+- ab630ee: With a `@Database` of `type: 'mysql'`, `BaseRepository.create`, `createMany`, `update`, `updateById`, `delete` and `deleteById`, and the `updateMany` and `deleteMany` aliases, reject with `Query builder does not support .returning() for this database driver` instead of a `TypeError` saying `returning is not a function`. Drizzle's MySQL query builders have no `.returning()`, so these methods do not work on `mysql`; the error names the missing method. `postgresql` and `bun-sql` databases are not affected.
+
 ## 4.1.1
 
 ### Patch Changes
