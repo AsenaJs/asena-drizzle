@@ -40,7 +40,7 @@ export class PostgreSQLAdapter extends DatabaseAdapter<NodePgDatabase<any>> {
 
       return this._connection;
     } catch (error) {
-      throw new Error(`PostgreSQL connection failed: ${error}`);
+      throw new Error(`PostgreSQL connection failed: ${String(error)}`);
     }
   }
 

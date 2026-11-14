@@ -30,7 +30,7 @@ export class BunSQLAdapter extends DatabaseAdapter<BunSQLDatabase<any>> {
 
       return this._connection;
     } catch (error) {
-      throw new Error(`Database connection failed: ${error}`);
+      throw new Error(`Database connection failed: ${String(error)}`);
     }
   }
 

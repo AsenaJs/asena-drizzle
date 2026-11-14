@@ -142,8 +142,8 @@ export abstract class AsenaDatabaseService<T = any> {
         `✅ Database Connected [${this.options.type.toUpperCase()}] ${this.options.config.name ? `- ${this.options.config.name}` : ''}`,
       );
     } catch (error) {
-      this.options.logger.error('❌ Database connection failed:', error);
-      throw new Error(`Database connection failed: ${error}`);
+      (this.options?.logger ?? console).error('❌ Database connection failed:', error);
+      throw new Error(`Database connection failed: ${String(error)}`);
     }
   }
 

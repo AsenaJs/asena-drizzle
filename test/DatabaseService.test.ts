@@ -239,8 +239,7 @@ describe('AsenaDatabaseService', () => {
 
   describe('createAdapter - adapter selection', () => {
     it('should throw error when options not set', async () => {
-      // When options is null, the error will be caught and logger access will fail
-      await expect(service.callOnStart()).rejects.toThrow();
+      await expect(service.callOnStart()).rejects.toThrow('Database options not initialized');
     });
 
     it('should create BunSQLAdapter for bun-sql type', async () => {

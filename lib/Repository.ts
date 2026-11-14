@@ -52,6 +52,15 @@ export interface DrizzleDatabase {
   execute(query: any): Promise<any>;
 }
 
+function requireBuilderMethod<T extends object, K extends keyof T>(
+  builder: T,
+  name: K,
+): asserts builder is T & Required<Pick<T, K>> {
+  if (typeof builder[name] !== 'function') {
+    throw new Error(`Query builder does not support .${String(name)}() for this database driver`);
+  }
+}
+
 /**
  * Base repository class providing common CRUD operations for Drizzle ORM entities.
  *
@@ -217,11 +226,10 @@ export abstract class BaseRepository<
    * ```
    */
   public async findById(id: IdType): Promise<SelectType | null> {
-    const result = await this.db
-      .select()
-      .from(this.table as any) // Type assertion still needed
-      .where(eq((this.table as any).id, id))
-      .limit(1);
+    const query = this.db.select().from(this.table as any);
+    requireBuilderMethod(query, 'where');
+
+    const result = await query.where(eq((this.table as any).id, id)).limit(1);
 
     if (result.length === 0) {
       return null;
@@ -249,6 +257,7 @@ export abstract class BaseRepository<
     const query = this.db.select().from(this.table as any);
 
     if (where) {
+      requireBuilderMethod(query, 'where');
       query.where(where);
     }
 
@@ -269,11 +278,10 @@ export abstract class BaseRepository<
    * ```
    */
   public async findOne(where: SQL<unknown> | undefined): Promise<SelectType | null> {
-    const result = await this.db
-      .select()
-      .from(this.table as any)
-      .where(where)
-      .limit(1);
+    const query = this.db.select().from(this.table as any);
+    requireBuilderMethod(query, 'where');
+
+    const result = await query.where(where).limit(1);
 
     if (result.length === 0) {
       return null;
@@ -298,10 +306,10 @@ export abstract class BaseRepository<
    * ```
    */
   public async create(data: InsertType): Promise<SelectType> {
-    const result = await this.db
-      .insert(this.table as any)
-      .values(data as any)
-      .returning();
+    const query = this.db.insert(this.table as any).values(data as any);
+    requireBuilderMethod(query, 'returning');
+
+    const result = await query.returning();
 
     return result[0] as SelectType;
   }
@@ -321,10 +329,10 @@ export abstract class BaseRepository<
    * ```
    */
   public async createMany(data: InsertType[]): Promise<SelectType[]> {
-    const result = await this.db
-      .insert(this.table as any)
-      .values(data)
-      .returning();
+    const query = this.db.insert(this.table as any).values(data);
+    requireBuilderMethod(query, 'returning');
+
+    const result = await query.returning();
 
     return result as SelectType[];
   }
@@ -344,11 +352,13 @@ export abstract class BaseRepository<
    * ```
    */
   public async updateById(id: IdType, data: Partial<InsertType>): Promise<SelectType | undefined> {
-    const result = await this.db
+    const query = this.db
       .update(this.table as any)
       .set(data)
-      .where(eq(this.table.id, id))
-      .returning();
+      .where(eq(this.table.id, id));
+    requireBuilderMethod(query, 'returning');
+
+    const result = await query.returning();
 
     return result[0] as SelectType | undefined;
   }
@@ -369,11 +379,13 @@ export abstract class BaseRepository<
    * ```
    */
   public async update(where: SQL, data: Partial<InsertType>): Promise<SelectType[]> {
-    const result = await this.db
+    const query = this.db
       .update(this.table as any)
       .set(data)
-      .where(where)
-      .returning();
+      .where(where);
+    requireBuilderMethod(query, 'returning');
+
+    const result = await query.returning();
 
     return result as SelectType[];
   }
@@ -393,10 +405,10 @@ export abstract class BaseRepository<
    * ```
    */
   public async deleteById(id: IdType): Promise<boolean> {
-    const result = await this.db
-      .delete(this.table as any)
-      .where(eq(this.table.id, id))
-      .returning();
+    const query = this.db.delete(this.table as any).where(eq(this.table.id, id));
+    requireBuilderMethod(query, 'returning');
+
+    const result = await query.returning();
 
     return result.length > 0;
   }
@@ -414,10 +426,10 @@ export abstract class BaseRepository<
    * ```
    */
   public async delete(where: SQL): Promise<number> {
-    const result = await this.db
-      .delete(this.table as any)
-      .where(where)
-      .returning();
+    const query = this.db.delete(this.table as any).where(where);
+    requireBuilderMethod(query, 'returning');
+
+    const result = await query.returning();
 
     return result.length;
   }
@@ -427,6 +439,7 @@ export abstract class BaseRepository<
     const query = this.db.select({ count: sql<number>`count(*)` }).from(this.table as any);
 
     if (where) {
+      requireBuilderMethod(query, 'where');
       query.where(where);
     }
 
@@ -508,6 +521,7 @@ export abstract class BaseRepository<
     const query = this.db.select().from(this.table as any);
 
     if (where) {
+      requireBuilderMethod(query, 'where');
       query.where(where);
     }
 
@@ -515,7 +529,9 @@ export abstract class BaseRepository<
     // may return rows in different orders across pages, causing duplicates or
     // skipped rows. Fall back to ordering by the primary key when the caller
     // did not specify one.
+    requireBuilderMethod(query, 'orderBy');
     query.orderBy(orderBy ?? asc(this.table.id));
+    requireBuilderMethod(query, 'limit');
     query.limit(limit).offset(offset);
 
     const data = (await query.execute()) as SelectType[];
@@ -622,11 +638,10 @@ export abstract class BaseRepository<
    * ```
    */
   public async exists(where: SQL): Promise<boolean> {
-    const result = await this.db
-      .select({ exists: sql<boolean>`1` })
-      .from(this.table as any)
-      .where(where)
-      .limit(1);
+    const query = this.db.select({ exists: sql<boolean>`1` }).from(this.table as any);
+    requireBuilderMethod(query, 'where');
+
+    const result = await query.where(where).limit(1);
 
     return result.length > 0;
   }
