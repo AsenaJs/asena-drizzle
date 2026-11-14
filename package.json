@@ -56,7 +56,7 @@
     "check:fix": "bun run lint:fix && bun run format"
   },
   "devDependencies": {
-    "@asenajs/asena": "^0.11.0",
+    "@asenajs/asena": "^0.12.4",
     "@changesets/cli": "^3.0.3",
     "@types/bun": "latest",
     "@types/pg": "^8.23.1",
